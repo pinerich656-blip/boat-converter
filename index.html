@@ -282,7 +282,8 @@ function tenjiPower(t){
     document.getElementById("rate"+i).value = "";
   }
   document.getElementById("result").innerHTML = "結果待ち";
-}
+document.getElementById("markView").style.display = "none";
+ }
 
   function drawMarkView(scenario, attacker){
   const markView = document.getElementById("markView");
