@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BOAT RACE 1マーク展開AI 改良版</title>
+<style>
+:root{
+  --bg:#0b1220;
+  --card:#121c33;
+  --line:#22304d;
+  --text:#ffffff;
+  --muted:#9fb0d1;
+  --blue:#2563eb;
+  --cyan:#06b6d4;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:linear-gradient(180deg,#08111f,#0d1730);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+}
+.app{max-width:430px;margin:auto;padding:12px}
+.card{
+  background:var(--card);
+  padding:14px;
+  margin:10px 0;
+  border-radius:16px;
+  border:1px solid var(--line)
+}
+h3{margin:0}
+button{
+  width:100%;
+  padding:14px;
+  margin-top:6px;
+  border:none;
+  border-radius:12px;
+  background:linear-gradient(135deg,var(--blue),var(--cyan));
+  color:#fff;
+  font-size:16px;
+  font-weight:800
+}
+select{
+  width:100%;
+  height:48px;
+  border:none;
+  border-radius:10px;
+  background:#08101d;
+  color:#fff;
+  text-align:center;
+  font-size:14px;
+  font-weight:700;
+  outline:none;
+  border:1px solid #243352;
+}
+.result{line-height:1.8}
+
+.top-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.small-btn{
+  height:44px;
+  font-size:14px;
+  font-weight:800;
+}
+.clear-btn{
+  background:#374151;
+}
+
+.mark-view{
+  margin-top:12px;
+  padding:12px;
+  border-radius:12px;
+  background:#0d1628;
+  border:1px solid #22304d;
+}
+.mark-title{
+  font-size:13px;
+  font-weight:800;
+  color:#dbeafe;
+  margin-bottom:10px;
+}
+.mark-lane{
+  position:relative;
+  height:120px;
+  border-radius:12px;
+  background:linear-gradient(180deg,#0b1324,#111c32);
+  overflow:hidden;
+}
+.lane-boat{
+  position:absolute;
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:900;
+  font-size:18px;
+  box-shadow:0 6px 16px rgba(0,0,0,.35);
+  transition:all .35s ease;
+}
+
+.badge{
+  display:inline-block;
+  padding:7px 12px;
+  border-radius:999px;
+  margin:4px 4px 0 0;
+  font-weight:800;
+  font-size:13px
+}
+.good{background:#16a34a}
+.warn{background:#dc2626}
+.tip{background:#2563eb}
+
+.head-grid,
+.row-grid{
+  display:grid;
+  grid-template-columns:42px repeat(6,1fr);
+  gap:8px;
+  align-items:center;
+  margin-top:8px
+}
+
+.head-cell{
+  text-align:center;
+  font-size:12px;
+  color:var(--muted);
+  font-weight:700
+}
+
+.cap{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:48px;
+  border-radius:10px;
+  font-weight:900;
+  font-size:18px
+}
+.c1{background:#fff;color:#000}
+.c2{background:#000;color:#fff}
+.c3{background:#ef4444;color:#fff}
+.c4{background:#2563eb;color:#fff}
+.c5{background:#f59e0b;color:#000}
+.c6{background:#16a34a;color:#fff}
+
+.num-wrap{
+  display:flex;
+  flex-direction:column;
+  gap:4px
+}
+.num-input{
+  width:100%;
+  height:48px;
+  border:none;
+  border-radius:10px;
+  background:#08101d;
+  color:#fff;
+  text-align:center;
+  font-size:18px;
+  font-weight:800;
+  outline:none;
+  border:1px solid #243352;
+  appearance:none;
+  -webkit-appearance:none;
+  -moz-appearance:textfield;
+}
+.num-input::-webkit-outer-spin-button,
+.num-input::-webkit-inner-spin-button{
+  -webkit-appearance:none;
+  margin:0;
+}
+.num-label{
+  text-align:center;
+  font-size:11px;
+  color:var(--muted)
+}
+
+.palette-help{
+  margin-top:8px;
+  font-size:12px;
+  color:var(--muted);
+  line-height:1.6
+}
+
+.comment{
+  margin-top:10px;
+  padding:12px;
+  border-radius:12px;
+  background:#0d1628;
+  border:1px solid #22304d
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="card">
+    <h3>1マーク展開AI</h3>
+    <div class="palette-help">
+      ST・展示・M2・勝率に加えて、展示ST気配とF持ちを考慮する改良版です。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="head-grid">
+      <div class="head-cell">艇</div>
+      <div class="head-cell">ST</div>
+      <div class="head-cell">展示</div>
+      <div class="head-cell">M2</div>
+      <div class="head-cell">勝率</div>
+      <div class="head-cell">展示ST</div>
+      <div class="head-cell">F</div>
+    </div>
+    <div id="inputs"></div>
+  </div>
+
+  <div class="card">
+    <div class="top-actions">
+      <button class="small-btn clear-btn" onclick="clearInputs()">🗑 全クリア</button>
+      <button class="small-btn" onclick="runAI()">🚤 展開予測</button>
+    </div>
+  </div>
+
+  <div class="card result">
+    <div id="result">結果待ち</div>
+    <div id="markView" class="mark-view" style="display:none;">
+      <div class="mark-title">1マーク展開イメージ</div>
+      <div class="mark-lane">
+        <div id="lane1" class="lane-boat c1">1</div>
+        <div id="lane2" class="lane-boat c2">2</div>
+        <div id="lane3" class="lane-boat c3">3</div>
+        <div id="lane4" class="lane-boat c4">4</div>
+        <div id="lane5" class="lane-boat c5">5</div>
+        <div id="lane6" class="lane-boat c6">6</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function makeInputs(){
+  let html="";
+  for(let i=1;i<=6;i++){
+    html += `
+      <div class="row-grid">
+        <div class="cap c${i}">${i}</div>
+
+        <div class="num-wrap">
+          <input id="st${i}" class="num-input" type="text" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="decimal" pattern="[0-9.]*" placeholder="">
+          <div class="num-label">ST</div>
+        </div>
+
+        <div class="num-wrap">
+          <input id="tenji${i}" class="num-input" type="text" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="decimal" pattern="[0-9.]*" placeholder="">
+          <div class="num-label">展示</div>
+        </div>
+
+        <div class="num-wrap">
+          <input id="m2${i}" class="num-input" type="text" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="decimal" pattern="[0-9.]*" placeholder="">
+          <div class="num-label">M2</div>
+        </div>
+
+        <div class="num-wrap">
+          <input id="rate${i}" class="num-input" type="text" value="" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="decimal" pattern="[0-9.]*" placeholder="">
+          <div class="num-label">勝率</div>
+        </div>
+
+        <div class="num-wrap">
+          <select id="demoST${i}">
+            <option value="0">普通</option>
+            <option value="6">良い</option>
+            <option value="-6">弱い</option>
+          </select>
+          <div class="num-label">展示ST</div>
+        </div>
+
+        <div class="num-wrap">
+          <select id="f${i}">
+            <option value="0">なし</option>
+            <option value="-8">F1</option>
+            <option value="-15">F2</option>
+          </select>
+          <div class="num-label">F</div>
+        </div>
+      </div>
+    `;
+  }
+  document.getElementById("inputs").innerHTML = html;
+}
+
+function forceInitialClear(){
+  makeInputs();
+  document.querySelectorAll(".num-input").forEach(el => {
+    el.value = "";
+    el.defaultValue = "";
+    el.setAttribute("value", "");
+  });
+  for(let i=1;i<=6;i++){
+    document.getElementById("demoST"+i).value = "0";
+    document.getElementById("f"+i).value = "0";
+  }
+  document.getElementById("result").innerHTML = "結果待ち";
+  document.getElementById("markView").style.display = "none";
+}
+
+function num(id){
+  const v = parseFloat(document.getElementById(id).value);
+  return isNaN(v) ? 0 : v;
+}
+
+function selNum(id){
+  const el = document.getElementById(id);
+  return el ? parseFloat(el.value) || 0 : 0;
+}
+
+function stPower(st){
+  return st > 0 ? (0.20 - st) * 120 : 0;
+}
+
+function tenjiPower(t){
+  return t > 0 ? (7 - t) * 18 : 0;
+}
+
+function clearInputs(){
+  document.querySelectorAll(".num-input").forEach(el => {
+    el.value = "";
+    el.defaultValue = "";
+    el.setAttribute("value", "");
+  });
+  for(let i=1;i<=6;i++){
+    document.getElementById("demoST"+i).value = "0";
+    document.getElementById("f"+i).value = "0";
+  }
+  document.getElementById("result").innerHTML = "結果待ち";
+  document.getElementById("markView").style.display = "none";
+}
+
+function drawMarkView(scenario, attacker){
+  const markView = document.getElementById("markView");
+  markView.style.display = "block";
+
+  const pos = {
+    1:{left:"18px", top:"62px"},
+    2:{left:"78px", top:"62px"},
+    3:{left:"138px", top:"62px"},
+    4:{left:"198px", top:"62px"},
+    5:{left:"258px", top:"62px"},
+    6:{left:"318px", top:"62px"}
+  };
+
+  for(let i=1;i<=6;i++){
+    const el = document.getElementById("lane"+i);
+    el.style.left = pos[i].left;
+    el.style.top = pos[i].top;
+  }
+
+  if(scenario === "イン逃げ"){
+    document.getElementById("lane1").style.left = "70px";
+    document.getElementById("lane1").style.top  = "18px";
+    document.getElementById("lane2").style.left = "132px";
+    document.getElementById("lane2").style.top  = "42px";
+    document.getElementById("lane3").style.left = "186px";
+    document.getElementById("lane3").style.top  = "56px";
+  }
+
+  if(scenario === "差し"){
+    document.getElementById("lane2").style.left = "92px";
+    document.getElementById("lane2").style.top  = "20px";
+    document.getElementById("lane1").style.left = "146px";
+    document.getElementById("lane1").style.top  = "42px";
+    document.getElementById("lane3").style.left = "208px";
+    document.getElementById("lane3").style.top  = "58px";
+  }
+
+  if(scenario.indexOf("まくり") >= 0){
+    const atk = document.getElementById("lane"+attacker);
+    atk.style.left = "84px";
+    atk.style.top  = "16px";
+    document.getElementById("lane1").style.left = "154px";
+    document.getElementById("lane1").style.top  = "42px";
+    document.getElementById("lane2").style.left = "218px";
+    document.getElementById("lane2").style.top  = "60px";
+  }
+}
+
+function runAI(){
+  const boats = [];
+
+  for(let i=1;i<=6;i++){
+    boats.push({
+      boat:i,
+      st:num("st"+i),
+      tenji:num("tenji"+i),
+      m2:num("m2"+i),
+      rate:num("rate"+i),
+      demoST:selNum("demoST"+i),
+      fpenalty:selNum("f"+i)
+    });
+  }
+
+  const one   = boats[0];
+  const two   = boats[1];
+  const three = boats[2];
+  const four  = boats[3];
+
+  const inEscape =
+    one.rate * 8 +
+    one.m2 * 0.5 +
+    stPower(one.st) +
+    tenjiPower(one.tenji) +
+    one.demoST +
+    one.fpenalty;
+
+  const sashi =
+    two.rate * 6 +
+    two.m2 * 0.4 +
+    stPower(two.st) +
+    tenjiPower(two.tenji) +
+    two.demoST +
+    (one.fpenalty * -0.5) +
+    two.fpenalty;
+
+  const makuri3 =
+    three.rate * 5 +
+    three.m2 * 0.4 +
+    stPower(three.st) +
+    tenjiPower(three.tenji) +
+    three.demoST +
+    three.fpenalty;
+
+  const makuri4 =
+    four.rate * 6 +
+    four.m2 * 0.5 +
+    stPower(four.st) +
+    tenjiPower(four.tenji) +
+    four.demoST +
+    four.fpenalty;
+
+  const makuri = Math.max(makuri3, makuri4);
+
+  let scenario = "イン逃げ";
+  let attacker = 1;
+
+  if(inEscape < sashi && sashi > makuri){
+    scenario = "差し";
+    attacker = 2;
+  } else if(makuri > inEscape){
+    scenario = "まくり/まくり差し";
+    attacker = (makuri4 > makuri3) ? 4 : 3;
+  }
+
+  const risk = Math.max(0, sashi + makuri - inEscape);
+
+  let riskText = "低";
+  let riskClass = "good";
+  if(risk > 50){
+    riskText = "高";
+    riskClass = "warn";
+  } else if(risk > 25){
+    riskText = "中";
+    riskClass = "tip";
+  }
+
+  let order = "1-2-3";
+  if(scenario === "差し") order = "2-1-3";
+  if(scenario.indexOf("まくり") >= 0) order = attacker + "-1-2";
+
+  let comment = "";
+  if(scenario === "イン逃げ"){
+    comment = "①が先マイして押し切る展開。";
+    if(one.fpenalty < 0) comment += " ただしF持ちで踏み込み慎重。";
+  } else if(scenario === "差し"){
+    comment = "②が差して①を捕らえる展開。";
+    if(one.fpenalty < 0) comment += " ①のF持ちが差しを後押し。";
+  } else {
+    comment = attacker + "が外から攻めて1マークの形を崩す展開。";
+    if((attacker === 3 && three.fpenalty < 0) || (attacker === 4 && four.fpenalty < 0)){
+      comment += " ただしF持ちで踏み込みは慎重。";
+    }
+  }
+
+  document.getElementById("result").innerHTML = `
+    <div class="badge tip">展開タイプ：${scenario}</div>
+    <div class="badge good">攻め艇：${attacker}号艇</div>
+    <div class="badge ${riskClass}">危険度：${riskText}</div>
+    <div class="comment">
+      <b>1マーク通過予想：</b> ${order}<br>
+      <b>イン逃げ指数：</b> ${inEscape.toFixed(1)}<br>
+      <b>差し圧：</b> ${sashi.toFixed(1)}<br>
+      <b>まくり圧：</b> ${makuri.toFixed(1)}<br>
+      <b>コメント：</b> ${comment}
+    </div>
+  `;
+
+  drawMarkView(scenario, attacker);
+}
+
+forceInitialClear();
+window.addEventListener("load", forceInitialClear);
+window.addEventListener("pageshow", forceInitialClear);
+</script>
+</body>
+</html>
