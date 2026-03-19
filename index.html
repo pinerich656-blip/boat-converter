@@ -13,13 +13,16 @@
   --muted:#9fb0d1;
   --blue:#2563eb;
   --cyan:#06b6d4;
+  --green:#16a34a;
+  --red:#dc2626;
+  --gold:#f59e0b;
 }
 *{box-sizing:border-box}
 body{
   margin:0;
   background:linear-gradient(180deg,#08111f,#0d1730);
   color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 }
 .app{max-width:430px;margin:auto;padding:12px}
 .card{
@@ -27,7 +30,7 @@ body{
   padding:14px;
   margin:10px 0;
   border-radius:16px;
-  border:1px solid var(--line)
+  border:1px solid var(--line);
 }
 h3{margin:0}
 button{
@@ -39,7 +42,7 @@ button{
   background:linear-gradient(135deg,var(--blue),var(--cyan));
   color:#fff;
   font-size:16px;
-  font-weight:800
+  font-weight:800;
 }
 .result{line-height:1.8}
 .badge{
@@ -48,11 +51,11 @@ button{
   border-radius:999px;
   margin:4px 4px 0 0;
   font-weight:800;
-  font-size:13px
+  font-size:13px;
 }
-.good{background:#16a34a}
-.warn{background:#dc2626}
-.tip{background:#2563eb}
+.good{background:var(--green)}
+.warn{background:var(--red)}
+.tip{background:var(--blue)}
 
 .head-grid,
 .row-grid{
@@ -60,14 +63,14 @@ button{
   grid-template-columns:42px repeat(4,1fr);
   gap:8px;
   align-items:center;
-  margin-top:8px
+  margin-top:8px;
 }
 
 .head-cell{
   text-align:center;
   font-size:12px;
   color:var(--muted);
-  font-weight:700
+  font-weight:700;
 }
 
 .cap{
@@ -77,7 +80,7 @@ button{
   height:48px;
   border-radius:10px;
   font-weight:900;
-  font-size:18px
+  font-size:18px;
 }
 .c1{background:#fff;color:#000}
 .c2{background:#000;color:#fff}
@@ -89,7 +92,7 @@ button{
 .num-wrap{
   display:flex;
   flex-direction:column;
-  gap:4px
+  gap:4px;
 }
 .num-input{
   width:100%;
@@ -106,31 +109,70 @@ button{
   appearance:none;
   -webkit-appearance:none;
   -moz-appearance:textfield;
+  caret-color:transparent;
 }
-.num-input::-webkit-outer-spin-button,
-.num-input::-webkit-inner-spin-button{
-  -webkit-appearance:none;
-  margin:0;
+.num-input.active{
+  border:2px solid var(--cyan);
+  box-shadow:0 0 0 2px rgba(6,182,212,.15);
 }
 .num-label{
   text-align:center;
   font-size:11px;
-  color:var(--muted)
+  color:var(--muted);
 }
-
 .palette-help{
   margin-top:8px;
   font-size:12px;
   color:var(--muted);
-  line-height:1.6
+  line-height:1.6;
 }
-
 .comment{
   margin-top:10px;
   padding:12px;
   border-radius:12px;
   background:#0d1628;
-  border:1px solid #22304d
+  border:1px solid #22304d;
+}
+.active-info{
+  margin-top:8px;
+  padding:10px;
+  border-radius:10px;
+  background:#0d1628;
+  font-size:13px;
+  color:#dbeafe;
+}
+.pad-grid{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  margin-top:10px;
+}
+.pad-btn{
+  height:54px;
+  border:none;
+  border-radius:12px;
+  font-size:22px;
+  font-weight:900;
+  color:#fff;
+  background:#0b1324;
+  border:1px solid #294066;
+}
+.pad-btn:active{transform:scale(.98)}
+.pad-btn.func{background:#1d4ed8}
+.pad-btn.warn{background:#b91c1c}
+.pad-btn.zero{grid-column:span 2}
+.clear-btn{
+  background:#374151;
+}
+.top-actions{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+}
+.small-btn{
+  height:44px;
+  font-size:14px;
+  font-weight:800;
 }
 </style>
 </head>
@@ -140,8 +182,15 @@ button{
   <div class="card">
     <h3>1マーク展開AI</h3>
     <div class="palette-help">
-      数字欄をタップすると、スマホで数字キーボードが出ます。
-      ST・展示は小数、M2・勝率は整数でも小数でもOKです。
+      入力欄をタップしてから、下の数字パレットで入力します。<br>
+      ST・展示は小数、M2・勝率も小数入力OKです。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="top-actions">
+      <button class="small-btn clear-btn" onclick="clearInputs()">全入力クリア</button>
+      <button class="small-btn" onclick="runAI()">展開予測</button>
     </div>
   </div>
 
@@ -157,7 +206,26 @@ button{
   </div>
 
   <div class="card">
-    <button onclick="runAI()">展開予測</button>
+    <div class="section-title"><b>数字パレット</b></div>
+    <div id="activeInfo" class="active-info">入力欄を選んでください</div>
+
+    <div class="pad-grid">
+      <button class="pad-btn" onclick="pressKey('1')">1</button>
+      <button class="pad-btn" onclick="pressKey('2')">2</button>
+      <button class="pad-btn" onclick="pressKey('3')">3</button>
+      <button class="pad-btn" onclick="pressKey('4')">4</button>
+      <button class="pad-btn" onclick="pressKey('5')">5</button>
+      <button class="pad-btn" onclick="pressKey('6')">6</button>
+      <button class="pad-btn" onclick="pressKey('7')">7</button>
+      <button class="pad-btn" onclick="pressKey('8')">8</button>
+      <button class="pad-btn" onclick="pressKey('9')">9</button>
+      <button class="pad-btn func" onclick="pressKey('.')">.</button>
+      <button class="pad-btn zero" onclick="pressKey('0')">0</button>
+      <button class="pad-btn func" onclick="backspaceKey()">⌫</button>
+      <button class="pad-btn warn" onclick="clearActive()">C</button>
+      <button class="pad-btn func" onclick="movePrev()">←</button>
+      <button class="pad-btn func" onclick="moveNext()">→</button>
+    </div>
   </div>
 
   <div class="card result" id="result">結果待ち</div>
@@ -165,36 +233,135 @@ button{
 </div>
 
 <script>
+let activeInputId = "";
+
 function makeInputs(){
-  let html="";
+  let html = "";
   for(let i=1;i<=6;i++){
     html += `
       <div class="row-grid">
         <div class="cap c${i}">${i}</div>
 
         <div class="num-wrap">
-          <input id="st${i}" class="num-input" type="text" inputmode="decimal" pattern="[0-9.]*" placeholder="0.13">
+          <input id="st${i}" class="num-input" type="text" placeholder="0.13" readonly onclick="setActive('st${i}','${i}号艇 ST')">
           <div class="num-label">ST</div>
         </div>
 
         <div class="num-wrap">
-          <input id="tenji${i}" class="num-input" type="text" inputmode="decimal" pattern="[0-9.]*" placeholder="6.75">
+          <input id="tenji${i}" class="num-input" type="text" placeholder="6.75" readonly onclick="setActive('tenji${i}','${i}号艇 展示')">
           <div class="num-label">展示</div>
         </div>
 
         <div class="num-wrap">
-          <input id="m2${i}" class="num-input" type="text" inputmode="decimal" pattern="[0-9.]*" placeholder="35.2">
+          <input id="m2${i}" class="num-input" type="text" placeholder="35.2" readonly onclick="setActive('m2${i}','${i}号艇 M2')">
           <div class="num-label">M2</div>
         </div>
 
         <div class="num-wrap">
-          <input id="rate${i}" class="num-input" type="text" inputmode="decimal" pattern="[0-9.]*" placeholder="6.45">
+          <input id="rate${i}" class="num-input" type="text" placeholder="6.45" readonly onclick="setActive('rate${i}','${i}号艇 勝率')">
           <div class="num-label">勝率</div>
         </div>
       </div>
     `;
   }
   document.getElementById("inputs").innerHTML = html;
+}
+
+function allInputIds(){
+  const ids = [];
+  for(let i=1;i<=6;i++){
+    ids.push(`st${i}`, `tenji${i}`, `m2${i}`, `rate${i}`);
+  }
+  return ids;
+}
+
+function labelOf(id){
+  if(!id) return "";
+  const m = id.match(/(st|tenji|m2|rate)(\d)/);
+  if(!m) return id;
+  const key = m[1];
+  const boat = m[2];
+  const map = {
+    st:"ST",
+    tenji:"展示",
+    m2:"M2",
+    rate:"勝率"
+  };
+  return `${boat}号艇 ${map[key]}`;
+}
+
+function setActive(id, labelText){
+  activeInputId = id;
+  document.querySelectorAll(".num-input").forEach(el => el.classList.remove("active"));
+  const el = document.getElementById(id);
+  if(el){
+    el.classList.add("active");
+  }
+  document.getElementById("activeInfo").textContent = `入力中：${labelText}`;
+}
+
+function pressKey(key){
+  if(!activeInputId) return;
+  const el = document.getElementById(activeInputId);
+  if(!el) return;
+
+  let v = el.value || "";
+
+  if(key === "."){
+    if(v.includes(".")) return;
+    if(v === "") v = "0";
+    el.value = v + ".";
+    return;
+  }
+
+  el.value = v + key;
+}
+
+function backspaceKey(){
+  if(!activeInputId) return;
+  const el = document.getElementById(activeInputId);
+  if(!el) return;
+  el.value = (el.value || "").slice(0, -1);
+}
+
+function clearActive(){
+  if(!activeInputId) return;
+  const el = document.getElementById(activeInputId);
+  if(!el) return;
+  el.value = "";
+}
+
+function movePrev(){
+  const ids = allInputIds();
+  if(!activeInputId){
+    setActive(ids[0], labelOf(ids[0]));
+    return;
+  }
+  const idx = ids.indexOf(activeInputId);
+  const nextIdx = idx <= 0 ? 0 : idx - 1;
+  setActive(ids[nextIdx], labelOf(ids[nextIdx]));
+}
+
+function moveNext(){
+  const ids = allInputIds();
+  if(!activeInputId){
+    setActive(ids[0], labelOf(ids[0]));
+    return;
+  }
+  const idx = ids.indexOf(activeInputId);
+  const nextIdx = idx >= ids.length - 1 ? ids.length - 1 : idx + 1;
+  setActive(ids[nextIdx], labelOf(ids[nextIdx]));
+}
+
+function clearInputs(){
+  allInputIds().forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.value = "";
+  });
+  document.querySelectorAll(".num-input").forEach(el => el.classList.remove("active"));
+  activeInputId = "";
+  document.getElementById("activeInfo").textContent = "入力欄を選んでください";
+  document.getElementById("result").innerHTML = "結果待ち";
 }
 
 function num(id){
