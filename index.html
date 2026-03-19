@@ -283,6 +283,61 @@ function tenjiPower(t){
   }
   document.getElementById("result").innerHTML = "結果待ち";
 }
+
+  function drawMarkView(scenario, attacker){
+  const markView = document.getElementById("markView");
+  markView.style.display = "block";
+
+  const pos = {
+    1:{left:"18px", top:"62px"},
+    2:{left:"78px", top:"62px"},
+    3:{left:"138px", top:"62px"},
+    4:{left:"198px", top:"62px"},
+    5:{left:"258px", top:"62px"},
+    6:{left:"318px", top:"62px"}
+  };
+
+  for(let i=1;i<=6;i++){
+    const el = document.getElementById("lane"+i);
+    el.style.left = pos[i].left;
+    el.style.top = pos[i].top;
+  }
+
+  if(scenario === "イン逃げ"){
+    document.getElementById("lane1").style.left = "70px";
+    document.getElementById("lane1").style.top  = "18px";
+
+    document.getElementById("lane2").style.left = "132px";
+    document.getElementById("lane2").style.top  = "42px";
+
+    document.getElementById("lane3").style.left = "186px";
+    document.getElementById("lane3").style.top  = "56px";
+  }
+
+  if(scenario === "差し"){
+    document.getElementById("lane2").style.left = "92px";
+    document.getElementById("lane2").style.top  = "20px";
+
+    document.getElementById("lane1").style.left = "146px";
+    document.getElementById("lane1").style.top  = "42px";
+
+    document.getElementById("lane3").style.left = "208px";
+    document.getElementById("lane3").style.top  = "58px";
+  }
+
+  if(scenario.indexOf("まくり") >= 0){
+    const atk = document.getElementById("lane"+attacker);
+    atk.style.left = "84px";
+    atk.style.top  = "16px";
+
+    document.getElementById("lane1").style.left = "154px";
+    document.getElementById("lane1").style.top  = "42px";
+
+    document.getElementById("lane2").style.left = "218px";
+    document.getElementById("lane2").style.top  = "60px";
+  }
+}
+  
 function runAI(){
   const boats = [];
 
