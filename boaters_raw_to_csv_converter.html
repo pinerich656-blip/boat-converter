@@ -1,0 +1,172 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BOATERS 生データ整形ツール</title>
+<style>
+:root{--bg:#0b1220;--card:#121c33;--line:#22304d;--text:#ffffff;--muted:#9fb0d1;--blue:#2563eb;--cyan:#06b6d4}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#08111f,#0d1730);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app{max-width:760px;margin:auto;padding:12px}
+.card{background:var(--card);padding:14px;margin:10px 0;border-radius:16px;border:1px solid var(--line)}
+h1{margin:0;font-size:22px}
+.small{margin-top:8px;font-size:12px;color:var(--muted);line-height:1.6}
+textarea{width:100%;min-height:220px;border:none;border-radius:12px;padding:12px;background:#08101d;color:#fff;border:1px solid #243352;resize:vertical;font-size:14px;line-height:1.55}
+button{width:100%;padding:14px;margin-top:6px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;font-size:16px;font-weight:800}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.secondary{background:#374151}
+pre{margin:0;white-space:pre-wrap;word-break:break-word;background:#08101d;border:1px solid #243352;border-radius:12px;padding:12px;font-size:14px;line-height:1.6}
+.badge{display:inline-block;padding:6px 10px;border-radius:999px;margin:4px 4px 0 0;font-weight:800;font-size:12px}
+.tip{background:#2563eb}.good{background:#16a34a}.warn{background:#dc2626}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="card">
+    <h1>BOATERS 生データ整形ツール</h1>
+    <div class="small">
+      boaters の生データをそのまま貼ると、<br>
+      <b>艇,F,ST,勝率,モーター2連率,コース別平均ST,コース別2着内率,決まり手（差/捲/捲差）,コース別勝率,今節平均ST,平均スタート順</b><br>
+      のCSVに整形します。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge tip">入力</div>
+    <textarea id="raw" placeholder="boaters の生データをそのまま貼り付け"></textarea>
+    <div class="actions">
+      <button onclick="convertData()">整形する</button>
+      <button class="secondary" onclick="clearAll()">全クリア</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge good">整形結果</div>
+    <pre id="out">ここに結果が出ます</pre>
+  </div>
+</div>
+
+<script>
+function clearAll(){
+  document.getElementById("raw").value = "";
+  document.getElementById("out").textContent = "ここに結果が出ます";
+}
+
+function linesFrom(text){
+  return text.split(/\r?\n/).map(s => s.replace(/\u00A0/g," ").trim()).filter(Boolean);
+}
+
+function findIndex(lines, keyword){
+  return lines.findIndex(x => x.includes(keyword));
+}
+
+function takeAfter(lines, start, count){
+  const out = [];
+  for(let i=start+1;i<lines.length && out.length<count;i++){
+    if(lines[i]) out.push(lines[i]);
+  }
+  return out;
+}
+
+function num(s){
+  const v = parseFloat(String(s).replace(/,/g,""));
+  return Number.isFinite(v) ? v : 0;
+}
+
+function normalizeF(s){
+  if(!s || s === "-" || s === "‐" || s === "—") return "なし";
+  const m = s.match(/F\d/);
+  return m ? m[0] : "なし";
+}
+
+function convertData(){
+  const lines = linesFrom(document.getElementById("raw").value);
+  const out = document.getElementById("out");
+
+  if(lines.length < 40){
+    out.textContent = "データ量が足りません。boaters のページをもう少し広くコピーしてください。";
+    return;
+  }
+
+  try{
+    const idxF = findIndex(lines, "Ｆ");
+    const idxNational = findIndex(lines, "全国勝率");
+    const idxMotor = lines.findIndex((x,i) => x.includes("モーター") && i+1 < lines.length && lines[i+1].includes("2連率"));
+    const idxAvgST = findIndex(lines, "平均ST");
+    const idxSession = findIndex(lines, "今節平均ST");
+    const idxCourseData = findIndex(lines, "コース別データ");
+    const idxCourseWin = lines.findIndex((x,i) => x.includes("コース別") && i+1 < lines.length && lines[i+1].includes("勝率"));
+    const idxKimari = findIndex(lines, "決まり手");
+    const idxCourse2 = lines.findIndex((x,i) => x.includes("コース別") && i+1 < lines.length && lines[i+1].includes("2着内率"));
+
+    if([idxF, idxNational, idxMotor, idxAvgST, idxSession, idxCourseData, idxCourseWin, idxKimari, idxCourse2].some(x => x < 0)){
+      out.textContent = "必要な見出しが見つかりません。コピー範囲を広げて再度試してください。";
+      return;
+    }
+
+    const fVals = takeAfter(lines, idxF, 6).reverse().map(normalizeF);
+
+    const natRaw = takeAfter(lines, idxNational + 1, 12);
+    const natPairs = [];
+    for(let i=0;i<12;i+=2){
+      natPairs.push({win:num(natRaw[i]), ren2:num(natRaw[i+1])});
+    }
+    const national = natPairs.reverse();
+
+    const motorRaw = takeAfter(lines, idxMotor + 1, 12).map(num);
+    const motorPairs = [];
+    for(let i=0;i<12;i+=2){
+      motorPairs.push({no:motorRaw[i], ren2:motorRaw[i+1]});
+    }
+    const motor2 = motorPairs.reverse().map(x => x.ren2 || 0);
+
+    const avgST = takeAfter(lines, idxAvgST, 6).map(num).reverse();
+
+    const sessionRaw = takeAfter(lines, idxSession, 12).map(num);
+    const sessionPairs = [];
+    for(let i=0;i<12;i+=2){
+      sessionPairs.push({st:sessionRaw[i], rank:sessionRaw[i+1]});
+    }
+    const session = sessionPairs.reverse();
+
+    const courseSTRaw = takeAfter(lines, idxCourseData, 12).map(num);
+    const courseSTPairs = [];
+    for(let i=0;i<12;i+=2){
+      courseSTPairs.push({st:courseSTRaw[i], rank:courseSTRaw[i+1]});
+    }
+    const courseST = courseSTPairs.reverse().map(x => x.st || 0);
+
+    const courseWin = takeAfter(lines, idxCourseWin + 1, 6).map(num).reverse();
+    const kimari = takeAfter(lines, idxKimari + 1, 6).reverse();
+    const course2 = takeAfter(lines, idxCourse2 + 1, 6).map(num).reverse();
+
+    const rows = [];
+    for(let i=0;i<6;i++){
+      rows.push([
+        i+1,
+        fVals[i] ?? "なし",
+        avgST[i] ?? 0,
+        national[i]?.win ?? 0,
+        motor2[i] ?? 0,
+        courseST[i] ?? 0,
+        course2[i] ?? 0,
+        kimari[i] ?? "0/0/0",
+        courseWin[i] ?? 0,
+        session[i]?.st ?? 0,
+        session[i]?.rank ?? 0
+      ].join(","));
+    }
+
+    out.textContent =
+`艇,F,ST,勝率,モーター2連率,コース別平均ST,コース別2着内率,決まり手（差/捲/捲差）,コース別勝率,今節平均ST,平均スタート順
+
+${rows.join("\n")}`;
+  }catch(e){
+    out.textContent = "整形中にエラーが出ました。コピー範囲を広げて再度試してください。";
+  }
+}
+</script>
+</body>
+</html>
