@@ -1,0 +1,192 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BOATERS専用整形ツール v6</title>
+<style>
+:root{--bg:#0b1220;--card:#121c33;--line:#22304d;--text:#fff;--muted:#9fb0d1;--blue:#2563eb;--cyan:#06b6d4}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(180deg,#08111f,#0d1730);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.app{max-width:900px;margin:auto;padding:12px}
+.card{background:var(--card);padding:14px;margin:10px 0;border-radius:16px;border:1px solid var(--line)}
+h1{margin:0;font-size:22px}
+.small{margin-top:8px;font-size:12px;color:var(--muted);line-height:1.7}
+textarea{width:100%;min-height:260px;border:none;border-radius:12px;padding:12px;background:#08101d;color:#fff;border:1px solid #243352;resize:vertical;font-size:14px;line-height:1.55}
+button{width:100%;padding:14px;margin-top:6px;border:none;border-radius:12px;background:linear-gradient(135deg,var(--blue),var(--cyan));color:#fff;font-size:16px;font-weight:800}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.secondary{background:#374151}
+pre{margin:0;white-space:pre-wrap;word-break:break-word;background:#08101d;border:1px solid #243352;border-radius:12px;padding:12px;font-size:14px;line-height:1.6}
+.badge{display:inline-block;padding:6px 10px;border-radius:999px;margin:4px 4px 0 0;font-weight:800;font-size:12px}
+.tip{background:#2563eb}.good{background:#16a34a}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="card">
+    <h1>BOATERS専用整形ツール v6</h1>
+    <div class="small">
+      boaters の生データをそのまま貼って整形します。<br>
+      <b>コース別平均ST / 平均スタート順 / コース別勝率</b> が同じ区間に並ぶケースに対応した修正版です。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge tip">入力</div>
+    <textarea id="raw" placeholder="boaters の生データをそのまま貼り付け"></textarea>
+    <div class="actions">
+      <button onclick="convertData()">整形する</button>
+      <button class="secondary" onclick="clearAll()">全クリア</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge good">整形結果</div>
+    <pre id="out">ここに結果が出ます</pre>
+  </div>
+</div>
+
+<script>
+function clearAll(){
+  document.getElementById("raw").value = "";
+  document.getElementById("out").textContent = "ここに結果が出ます";
+}
+function splitLines(text){
+  return text.split(/\r?\n/).map(s => s.replace(/\u00A0/g," ").trim()).filter(Boolean);
+}
+function isNum(s){ return /^-?\d+(\.\d+)?$/.test(s); }
+function find(lines, keyword, start=0){
+  for(let i=start;i<lines.length;i++) if(lines[i].includes(keyword)) return i;
+  return -1;
+}
+function numsBetween(lines, start, end){
+  const out = [];
+  for(let i=start+1; i<end; i++) if(isNum(lines[i])) out.push(parseFloat(lines[i]));
+  return out;
+}
+function textsBetween(lines, start, end, pattern){
+  const out = [];
+  for(let i=start+1; i<end; i++) if(pattern.test(lines[i])) out.push(lines[i]);
+  return out;
+}
+function pairField(nums, field){
+  const arr = [];
+  for(let i=0;i+1<nums.length;i+=2) arr.push(field===0 ? nums[i] : nums[i+1]);
+  return arr;
+}
+function rev(a){ return a.slice().reverse(); }
+
+function parseF(lines){
+  const idx = find(lines, "Ｆ");
+  if(idx < 0) return Array(6).fill("なし");
+  const raw = [];
+  for(let i=idx-1; i>=0 && raw.length<6; i--){
+    const s = lines[i];
+    if(s === "-" || /^\d+\s*\((未|済)\)$/.test(s)) raw.push(s);
+    if(s.includes("体重")) break;
+  }
+  while(raw.length < 6) raw.push("-");
+  return raw.map(v => {
+    if(v === "-") return "なし";
+    const m = v.match(/^(\d+)\s*\((未|済)\)$/);
+    return m ? "F" + m[1] : "なし";
+  });
+}
+
+function convertData(){
+  const lines = splitLines(document.getElementById("raw").value);
+  const out = document.getElementById("out");
+  if(lines.length < 40){ out.textContent = "データ量が足りません。"; return; }
+
+  const idxF = find(lines, "Ｆ");
+  const idxNational = find(lines, "全国勝率");
+  const idxLocal = find(lines, "当地勝率");
+  const idxMotor = find(lines, "モーター", idxLocal + 1);
+  const idxAvgST = find(lines, "平均ST");
+  const idxSession = find(lines, "今節平均ST");
+  const idxCourseData = find(lines, "コース別データ");
+  const idxCourseWin = find(lines, "勝率", idxCourseData + 1);
+  const idxKimari = find(lines, "決まり手", idxCourseWin + 1);
+  const idxCourse2 = find(lines, "2着内率", idxKimari + 1);
+
+  if([idxF, idxNational, idxLocal, idxMotor, idxAvgST, idxSession, idxCourseData, idxCourseWin, idxKimari, idxCourse2].some(x => x < 0)){
+    out.textContent = "見出し不足\n" + JSON.stringify({idxF, idxNational, idxLocal, idxMotor, idxAvgST, idxSession, idxCourseData, idxCourseWin, idxKimari, idxCourse2}, null, 2);
+    return;
+  }
+
+  const fVals = parseF(lines);
+
+  const natNums = [];
+  for(let i=idxNational-1; i>=0 && natNums.length<12; i--){
+    if(isNum(lines[i])) natNums.push(parseFloat(lines[i]));
+    if(lines[i].includes("Ｌ")) break;
+  }
+  const wins = pairField(natNums.reverse(), 0).reverse();
+
+  const motorNums = numsBetween(lines, idxLocal, idxMotor);
+  const motor2 = rev(pairField(motorNums, 1));
+
+  const avgNums = [];
+  for(let i=idxAvgST-1; i>=0 && avgNums.length<6; i--){
+    if(isNum(lines[i])) avgNums.push(parseFloat(lines[i]));
+    if(lines[i].includes("スタートデータ")) break;
+  }
+  const avgST = avgNums;
+
+  const sessionNums = numsBetween(lines, idxAvgST, idxSession);
+  const sessionST = rev(pairField(sessionNums, 0));
+  const avgStartRank = rev(pairField(sessionNums, 1));
+
+  const beforeWinNums = numsBetween(lines, idxCourseData, idxKimari);
+  const courseST = rev(pairField(beforeWinNums.slice(0, 12), 0));
+  const courseWin = rev(beforeWinNums.slice(12, 18));
+
+  const kimari = rev(textsBetween(lines, idxCourseWin, idxCourse2, /^\d+\/\d+\/\d+$/).slice(0, 6));
+
+  let idxCourse3 = find(lines, "3着内率", idxCourse2 + 1);
+  if(idxCourse3 < 0) idxCourse3 = find(lines, "当地", idxCourse2 + 1);
+  if(idxCourse3 < 0) idxCourse3 = lines.length;
+  const course2 = rev(numsBetween(lines, idxCourse2, idxCourse3).slice(0, 6));
+
+  const counts = {
+    F: fVals.length, 勝率: wins.length, M2: motor2.length, 平均ST: avgST.length,
+    今節平均ST: sessionST.length, 平均スタート順: avgStartRank.length,
+    コース別平均ST: courseST.length, コース別勝率: courseWin.length,
+    決まり手: kimari.length, コース別2着内率: course2.length
+  };
+
+  if(Math.min(...Object.values(counts)) < 6){
+    out.textContent = "読み取り途中で不足しました。\n\n" +
+      JSON.stringify(counts, null, 2) + "\n\n" +
+      "beforeWinNums=" + JSON.stringify(beforeWinNums) + "\n" +
+      "kimari=" + JSON.stringify(kimari) + "\n" +
+      "course2=" + JSON.stringify(course2);
+    return;
+  }
+
+  const rows = [];
+  for(let i=0;i<6;i++){
+    rows.push([
+      i+1,
+      fVals[i],
+      Number(avgST[i]||0).toFixed(2),
+      Number(wins[i]||0).toFixed(2),
+      Number(motor2[i]||0).toFixed(2),
+      Number(courseST[i]||0).toFixed(2),
+      Number(course2[i]||0).toFixed(2),
+      kimari[i] || "0/0/0",
+      Number(courseWin[i]||0).toFixed(2),
+      Number(sessionST[i]||0).toFixed(2),
+      Number(avgStartRank[i]||0).toFixed(1)
+    ].join(","));
+  }
+
+  out.textContent =
+`艇,F,ST,勝率,モーター2連率,コース別平均ST,コース別2着内率,決まり手（差/捲/捲差）,コース別勝率,今節平均ST,平均スタート順
+
+${rows.join("\n")}`;
+}
+</script>
+</body>
+</html>
