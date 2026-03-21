@@ -1,0 +1,92 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BOAT RACE AI コピペ入力対応版</title>
+<style>
+body{margin:0;background:#0b1220;color:#fff;font-family:sans-serif}
+.app{max-width:430px;margin:auto;padding:12px}
+.card{background:#121c33;padding:12px;margin:10px 0;border-radius:12px}
+textarea{width:100%;height:140px;border:none;border-radius:10px;padding:10px;background:#020617;color:#fff}
+input,select,button{width:100%;padding:10px;margin-top:6px;border-radius:8px;border:none}
+button{background:#2563eb;color:#fff;font-weight:bold}
+.result{line-height:1.7}
+.badge{display:inline-block;padding:6px 10px;border-radius:999px;margin:4px;font-weight:bold}
+.good{background:#16a34a}.warn{background:#dc2626}.tip{background:#2563eb}
+</style>
+</head>
+<body>
+<div class="app">
+
+<div class="card">
+<h3>① コピペ入力</h3>
+<textarea id="paste"></textarea>
+</div>
+
+<div class="card">
+<h3>② 展示入力（あとから）</h3>
+<input id="tenji1" placeholder="1 展示">
+<input id="tenji2" placeholder="2 展示">
+<input id="tenji3" placeholder="3 展示">
+<input id="tenji4" placeholder="4 展示">
+<input id="tenji5" placeholder="5 展示">
+<input id="tenji6" placeholder="6 展示">
+<select id="k1"><option>普</option><option>良</option><option>弱</option></select>
+<select id="k2"><option>普</option><option>良</option><option>弱</option></select>
+<select id="k3"><option>普</option><option>良</option><option>弱</option></select>
+<select id="k4"><option>普</option><option>良</option><option>弱</option></select>
+<select id="k5"><option>普</option><option>良</option><option>弱</option></select>
+<select id="k6"><option>普</option><option>良</option><option>弱</option></select>
+</div>
+
+<div class="card">
+<button onclick="runAI()">予想</button>
+</div>
+
+<div class="card result" id="result">結果待ち</div>
+
+</div>
+
+<script>
+function runAI(){
+  const raw = document.getElementById("paste").value.trim().split("\n").slice(1);
+
+  let boats=[];
+
+  raw.forEach(line=>{
+    const d=line.split(",");
+    boats.push({
+      boat:parseInt(d[0]),
+      f:d[1],
+      st:parseFloat(d[2]),
+      rate:parseFloat(d[3]),
+      m2:parseFloat(d[4])
+    });
+  });
+
+  boats.forEach((b,i)=>{
+    const tenji=parseFloat(document.getElementById("tenji"+(i+1)).value)||0;
+    const k=document.getElementById("k"+(i+1)).value;
+
+    let score=b.rate*8+b.m2*0.5+(0.2-b.st)*100;
+
+    if(tenji>0) score+=(7-tenji)*20;
+    if(k==="良") score+=10;
+    if(k==="弱") score-=10;
+
+    b.score=score;
+  });
+
+  boats.sort((a,b)=>b.score-a.score);
+
+  document.getElementById("result").innerHTML=
+    "<div class='badge good'>本命："+boats[0].boat+"</div>"+
+    "<div class='badge tip'>2着："+boats[1].boat+"</div>"+
+    "<div class='badge warn'>3着："+boats[2].boat+"</div>";
+}
+</script>
+
+</body>
+</html>
