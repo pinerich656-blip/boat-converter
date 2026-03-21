@@ -1,0 +1,240 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BOATERS専用パーフェクト整形ツール</title>
+<style>
+:root{
+  --bg:#0b1220; --card:#121c33; --line:#22304d; --text:#ffffff; --muted:#9fb0d1;
+  --blue:#2563eb; --cyan:#06b6d4;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:linear-gradient(180deg,#08111f,#0d1730); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+.app{max-width:860px;margin:auto;padding:12px}
+.card{
+  background:var(--card); padding:14px; margin:10px 0; border-radius:16px; border:1px solid var(--line);
+}
+h1{margin:0;font-size:22px}
+.small{margin-top:8px;font-size:12px;color:var(--muted);line-height:1.7}
+textarea{
+  width:100%; min-height:260px; border:none; border-radius:12px; padding:12px;
+  background:#08101d; color:#fff; border:1px solid #243352; resize:vertical;
+  font-size:14px; line-height:1.55;
+}
+button{
+  width:100%; padding:14px; margin-top:6px; border:none; border-radius:12px;
+  background:linear-gradient(135deg,var(--blue),var(--cyan)); color:#fff; font-size:16px; font-weight:800;
+}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.secondary{background:#374151}
+pre{
+  margin:0; white-space:pre-wrap; word-break:break-word; background:#08101d;
+  border:1px solid #243352; border-radius:12px; padding:12px; font-size:14px; line-height:1.6;
+}
+.badge{
+  display:inline-block; padding:6px 10px; border-radius:999px; margin:4px 4px 0 0; font-weight:800; font-size:12px;
+}
+.tip{background:#2563eb}.good{background:#16a34a}.warn{background:#dc2626}.gold{background:#f59e0b;color:#111}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="card">
+    <h1>BOATERS専用パーフェクト整形ツール</h1>
+    <div class="small">
+      boaters の生データをそのまま貼ると、<br>
+      <b>艇,F,ST,勝率,モーター2連率,コース別平均ST,コース別2着内率,決まり手（差/捲/捲差）,コース別勝率,今節平均ST,平均スタート順</b><br>
+      のCSVに整形します。<br>
+      今回は <b>6→1 の逆順</b>、<b>数値の縦並び</b>、<b>Fの (未)/(済)</b> に対応した安定版です。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge tip">入力</div>
+    <textarea id="raw" placeholder="boaters の生データをそのまま貼り付け"></textarea>
+    <div class="actions">
+      <button onclick="convertData()">整形する</button>
+      <button class="secondary" onclick="clearAll()">全クリア</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge good">整形結果</div>
+    <pre id="out">ここに結果が出ます</pre>
+  </div>
+
+</div>
+
+<script>
+function clearAll(){
+  document.getElementById("raw").value = "";
+  document.getElementById("out").textContent = "ここに結果が出ます";
+}
+
+function splitLines(text){
+  return text
+    .split(/\r?\n/)
+    .map(s => s.replace(/\u00A0/g, " ").trim())
+    .filter(Boolean);
+}
+
+function findLineIndex(lines, text){
+  return lines.findIndex(x => x.includes(text));
+}
+
+function getNumbersAfter(lines, startIndex, count){
+  const arr = [];
+  for(let i = startIndex + 1; i < lines.length && arr.length < count; i++){
+    const s = lines[i];
+    if (/^-?\d+(\.\d+)?$/.test(s)) arr.push(parseFloat(s));
+  }
+  return arr;
+}
+
+function getTextAfter(lines, startIndex, count){
+  const arr = [];
+  for(let i = startIndex + 1; i < lines.length && arr.length < count; i++){
+    const s = lines[i];
+    if (s) arr.push(s);
+  }
+  return arr;
+}
+
+function pairNumbers(list){
+  const out = [];
+  for(let i = 0; i + 1 < list.length; i += 2){
+    out.push([list[i], list[i + 1]]);
+  }
+  return out;
+}
+
+function reversePairsToField(list, fieldIndex){
+  return pairNumbers(list).reverse().map(p => p[fieldIndex]);
+}
+
+function parseFPairs(lines){
+  const idx = findLineIndex(lines, "Ｆ");
+  if(idx < 0) return Array(6).fill("なし");
+
+  const values = [];
+  for(let i = idx + 1; i < lines.length && values.length < 6; i++){
+    const s = lines[i];
+    if (s === "-" || /^\d+\s*\((未|済)\)$/.test(s)) values.push(s);
+  }
+
+  return values.reverse().map(v => {
+    if (v === "-") return "なし";
+    const m = v.match(/^(\d+)\s*\((未|済)\)$/);
+    if (!m) return "なし";
+    return "F" + m[1];
+  });
+}
+
+function parseKimarite(lines){
+  const idx = findLineIndex(lines, "決まり手");
+  if(idx < 0) return Array(6).fill("0/0/0");
+  const arr = [];
+  for(let i = idx + 1; i < lines.length && arr.length < 6; i++){
+    const s = lines[i];
+    if (/^\d+\/\d+\/\d+$/.test(s)) arr.push(s);
+  }
+  return arr.reverse();
+}
+
+function convertData(){
+  const raw = document.getElementById("raw").value;
+  const out = document.getElementById("out");
+  const lines = splitLines(raw);
+
+  if(lines.length < 50){
+    out.textContent = "データ量が足りません。boaters のページを広めにコピーしてください。";
+    return;
+  }
+
+  try{
+    const idxNational = findLineIndex(lines, "全国勝率");
+    const idxMotor = findLineIndex(lines, "モーター");
+    const idxAvgST = findLineIndex(lines, "平均ST");
+    const idxSession = findLineIndex(lines, "今節平均ST");
+    const idxCourseData = findLineIndex(lines, "コース別データ");
+    const idxCourseWin = lines.findIndex((x, i) => x.includes("コース別") && i + 1 < lines.length && lines[i + 1].includes("勝率"));
+    const idxCourse2 = lines.findIndex((x, i) => x.includes("コース別") && i + 1 < lines.length && lines[i + 1].includes("2着内率"));
+
+    if([idxNational, idxMotor, idxAvgST, idxSession, idxCourseData, idxCourseWin, idxCourse2].some(x => x < 0)){
+      out.textContent = "必要な見出しが見つかりません。コピー範囲を広げて再度試してください。";
+      return;
+    }
+
+    const fVals = parseFPairs(lines);
+
+    // 全国勝率/2連率 -> 勝率だけ使う
+    const nationalNums = getNumbersAfter(lines, idxNational, 12);
+    const wins = reversePairsToField(nationalNums, 0);
+
+    // モーターNo/2連率 -> 2連率だけ使う
+    // 「モーター」「2連率」見出しの直後から 12個
+    let motorStart = idxMotor;
+    const motorNums = getNumbersAfter(lines, motorStart, 12);
+    const motor2 = reversePairsToField(motorNums, 1);
+
+    // 平均ST
+    const avgST = getNumbersAfter(lines, idxAvgST, 6).reverse();
+
+    // 今節平均ST / 平均スタート順
+    const sessionNums = getNumbersAfter(lines, idxSession, 12);
+    const sessionST = reversePairsToField(sessionNums, 0);
+    const avgStartRank = reversePairsToField(sessionNums, 1);
+
+    // コース別平均ST / 平均スタート順
+    const courseSTNums = getNumbersAfter(lines, idxCourseData, 12);
+    const courseST = reversePairsToField(courseSTNums, 0);
+
+    // コース別勝率
+    const courseWin = getNumbersAfter(lines, idxCourseWin, 6).reverse();
+
+    // 決まり手
+    const kimari = parseKimarite(lines);
+
+    // コース別2着内率
+    const course2 = getNumbersAfter(lines, idxCourse2, 6).reverse();
+
+    const lengths = [fVals.length, wins.length, motor2.length, avgST.length, sessionST.length, avgStartRank.length, courseST.length, courseWin.length, kimari.length, course2.length];
+    if (Math.min(...lengths) < 6){
+      out.textContent = "一部の列が6艇分そろっていません。コピー範囲を広げて再度試してください。";
+      return;
+    }
+
+    const rows = [];
+    for(let i=0;i<6;i++){
+      rows.push([
+        i + 1,
+        fVals[i],
+        avgST[i].toFixed(2),
+        wins[i].toFixed(2),
+        motor2[i].toFixed(2),
+        courseST[i].toFixed(2),
+        course2[i].toFixed(2),
+        kimari[i],
+        courseWin[i].toFixed(2),
+        sessionST[i].toFixed(2),
+        avgStartRank[i].toFixed(1)
+      ].join(","));
+    }
+
+    out.textContent =
+`艇,F,ST,勝率,モーター2連率,コース別平均ST,コース別2着内率,決まり手（差/捲/捲差）,コース別勝率,今節平均ST,平均スタート順
+
+${rows.join("\n")}`;
+  }catch(e){
+    out.textContent = "整形中にエラーが出ました。コピー範囲を広げて再度試してください。";
+  }
+}
+</script>
+</body>
+</html>
