@@ -3,120 +3,153 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>本格競輪予測 Pro</title>
+    <title>本格競輪予測 Pro - Line Edition</title>
     <style>
         :root {
             --color-1: #ffffff; --color-2: #333333; --color-3: #e74c3c;
             --color-4: #3498db; --color-5: #f1c40f; --color-6: #27ae60;
             --color-7: #e67e22; --color-8: #95a5a6; --color-9: #8e44ad;
         }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        body { font-family: -apple-system, sans-serif; background-color: #f0f2f5; margin: 0; padding: 15px; }
         .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #1a1a1a; font-size: 1.4rem; margin-bottom: 20px; border-bottom: 2px solid #27ae60; padding-bottom: 10px; }
+        h1 { text-align: center; color: #1a1a1a; font-size: 1.2rem; border-bottom: 2px solid #27ae60; padding-bottom: 10px; }
         
-        .setup-section { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px; }
-        label { font-size: 0.85rem; font-weight: bold; color: #666; display: block; margin-bottom: 5px; }
-        select, input[type="number"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
-
-        .player-row { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; padding: 5px; border-radius: 8px; transition: 0.2s; }
-        .car-number { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid #ccc; font-size: 0.9rem; }
+        .section-title { font-size: 0.9rem; font-weight: bold; color: #27ae60; margin: 15px 0 5px 0; }
+        .setup-section { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 8px; }
         
-        /* 車番カラー設定 */
-        .car-1 { background-color: var(--color-1); color: #000; }
-        .car-2 { background-color: var(--color-2); color: #fff; }
-        .car-3 { background-color: var(--color-3); color: #fff; }
-        .car-4 { background-color: var(--color-4); color: #fff; }
-        .car-5 { background-color: var(--color-5); color: #000; }
-        .car-6 { background-color: var(--color-6); color: #fff; }
-        .car-7 { background-color: var(--color-7); color: #fff; }
-        .car-8 { background-color: var(--color-8); color: #fff; }
-        .car-9 { background-color: var(--color-9); color: #fff; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
+        
+        .line-input-area { background: #eef7f2; padding: 10px; border-radius: 8px; margin-bottom: 15px; }
+        .line-input-area input { border: 2px solid #27ae60; }
 
-        button { width: 100%; padding: 15px; background-color: #27ae60; color: white; border: none; border-radius: 10px; font-size: 1.1rem; font-weight: bold; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 0 #1e8449; }
-        button:active { transform: translateY(2px); box-shadow: 0 2px 0 #1e8449; }
+        .player-row { display: flex; align-items: center; margin-bottom: 6px; gap: 8px; }
+        .car-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid #ccc; font-size: 0.8rem; }
+        
+        .car-1 { background: var(--color-1); color: #000; }
+        .car-2 { background: var(--color-2); color: #fff; }
+        .car-3 { background: var(--color-3); color: #fff; }
+        .car-4 { background: var(--color-4); color: #fff; }
+        .car-5 { background: var(--color-5); color: #000; }
+        .car-6 { background: var(--color-6); color: #fff; }
+        .car-7 { background: var(--color-7); color: #fff; }
+        .car-8 { background: var(--color-8); color: #fff; }
+        .car-9 { background: var(--color-9); color: #fff; }
 
-        #result { margin-top: 25px; padding: 20px; border-radius: 12px; display: none; background-color: #fffbe6; border: 2px solid #ffe58f; }
-        .rank-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #eee; align-items: center; }
-        .rank-badge { background: #e67e22; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; margin-right: 10px; }
-        .score-val { font-weight: bold; font-size: 1.1rem; color: #d35400; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .btn-fetch { background: #3498db; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-calc { background: #27ae60; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        #result { margin-top: 20px; padding: 15px; border-radius: 12px; display: none; background: #fffbe6; border: 2px solid #ffe58f; }
+        .rank-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
+        .mark { color: #e67e22; font-weight: bold; margin-right: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>本格競輪予測 Pro</h1>
+    <h1>本格競輪予測 Pro v2</h1>
     
+    <div class="btn-group" style="margin-bottom: 15px;">
+        <button class="btn-fetch" onclick="autoFetchData()">📡 データ自動取得</button>
+        <div style="font-size: 0.7rem; color: #666; display: flex; align-items: center;">※最新データを外部JSONから読み込み</div>
+    </div>
+
+    <div class="section-title">ライン構成 (例: 127 34 56)</div>
+    <div class="line-input-area">
+        <input type="text" id="line-config" placeholder="ラインを半角スペース区切りで入力">
+    </div>
+
     <div class="setup-section">
-        <div>
-            <label>競輪場（バンク）</label>
-            <select id="stadium">
-                <option value="1.0">基準 (400m)</option>
-                <option value="1.05">直線長 (松山等)</option>
-                <option value="0.95">短周 (小倉・前橋等)</option>
-            </select>
-        </div>
-        <div>
-            <label>レース番号</label>
-            <input type="number" id="race-num" value="1" min="1" max="12">
-        </div>
+        <select id="stadium">
+            <option value="1.0">基準 (400m)</option>
+            <option value="1.1">直線長 (松山等)</option>
+            <option value="0.9">短周 (小倉等)</option>
+        </select>
+        <input type="number" id="race-num" value="1" min="1">
     </div>
 
-    <div id="player-inputs">
-        <script>
-            const container = document.getElementById('player-inputs');
-            for(let i=1; i<=9; i++) {
-                container.innerHTML += `
-                    <div class="player-row">
-                        <div class="car-number car-${i}">${i}</div>
-                        <input type="number" id="score${i}" placeholder="競走得点" step="0.1" value="${(90 - i).toFixed(1)}">
-                    </div>
-                `;
-            }
-        </script>
-    </div>
+    <div id="players">
+        </div>
 
-    <button onclick="runPrediction()">予想実行</button>
+    <button class="btn-calc" style="width:100%; margin-top:10px;" onclick="runCalculation()">予想実行</button>
 
     <div id="result">
-        <h3 style="margin-top:0;">💡 予測結果（期待値順）</h3>
+        <h3 style="margin:0 0 10px 0; font-size: 1rem;">🎯 最終予測結果</h3>
         <div id="prediction-list"></div>
     </div>
 </div>
 
 <script>
-    function runPrediction() {
-        const stadiumMod = parseFloat(document.getElementById('stadium').value);
-        let results = [];
+    // 画面初期化（9車分の入力欄作成）
+    const pArea = document.getElementById('players');
+    for(let i=1; i<=9; i++) {
+        pArea.innerHTML += `
+            <div class="player-row">
+                <div class="car-num car-${i}">${i}</div>
+                <input type="number" id="score${i}" placeholder="得点" step="0.1">
+                <input type="text" id="name${i}" placeholder="選手名" style="font-size:0.8rem;">
+            </div>
+        `;
+    }
 
+    // 1. データ自動取得（シミュレーション）
+    async function autoFetchData() {
+        // 本来は fetch('https://your-github-io/data.json') などで取得
+        alert("GitHub上の最新データを取得しました（デモデータ）");
+        const demoData = [
+            {id:1, s:95.2, n:"佐藤"}, {id:2, s:92.1, n:"鈴木"}, {id:3, s:89.5, n:"高橋"},
+            {id:4, s:88.0, n:"田中"}, {id:5, s:91.4, n:"伊藤"}, {id:6, s:85.2, n:"渡辺"},
+            {id:7, s:93.8, n:"山本"}, {id:8, s:84.5, n:"中村"}, {id:9, s:90.1, n:"小林"}
+        ];
+        demoData.forEach(d => {
+            document.getElementById(`score${d.id}`).value = d.s;
+            document.getElementById(`name${d.id}`).value = d.n;
+        });
+    }
+
+    // 2. 予測計算（ライン考慮版）
+    function runCalculation() {
+        const lineText = document.getElementById('line-config').value; // 例 "127 34 56"
+        const lines = lineText.split(' ');
+        const stadiumMod = parseFloat(document.getElementById('stadium').value);
+        
+        // 各ラインの先頭選手（自力選手）を抽出
+        const leaders = lines.map(l => l[0]); 
+
+        let results = [];
         for(let i=1; i<=9; i++) {
-            const rawScore = parseFloat(document.getElementById(`score${i}`).value) || 0;
-            if(rawScore > 0) {
-                // 仮の本格ロジック：得点にバンク補正を掛け合わせる
-                const finalScore = (rawScore * stadiumMod).toFixed(2);
-                results.push({ car: i, score: parseFloat(finalScore) });
+            let score = parseFloat(document.getElementById(`score${i}`).value) || 0;
+            if(score === 0) continue;
+
+            // 基本スコア計算
+            let finalScore = score * stadiumMod;
+
+            // ライン先頭ボーナス（自力評価）
+            if(leaders.includes(i.toString())) {
+                finalScore += 2.0; // 先行選手に一律加点
             }
+
+            results.push({ car: i, name: document.getElementById(`name${i}`).value, score: finalScore });
         }
 
-        // スコアの高い順にソート
         results.sort((a, b) => b.score - a.score);
 
         const list = document.getElementById('prediction-list');
         list.innerHTML = '';
+        const marks = ['◎', '○', '▲', '△', '×'];
         
-        results.forEach((res, index) => {
-            const rankLabel = index === 0 ? '◎' : index === 1 ? '○' : index === 2 ? '▲' : '△';
+        results.forEach((r, idx) => {
+            const mark = marks[idx] || ' ';
             list.innerHTML += `
                 <div class="rank-item">
-                    <span><span class="rank-badge">${rankLabel}</span> ${res.car}番車</span>
-                    <span class="score-val">${res.score}</span>
+                    <span><span class="mark">${mark}</span>${r.car}番車 (${r.name || '無名'})</span>
+                    <span style="font-weight:bold;">${r.score.toFixed(2)}</span>
                 </div>
             `;
         });
-
         document.getElementById('result').style.display = 'block';
-        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
     }
 </script>
-
 </body>
 </html>
+
