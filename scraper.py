@@ -1,72 +1,67 @@
 import requests
-from bs4 import BeautifulSoup
 import json
 import time
-import re
 from datetime import datetime
 
 def get_keirin_data():
-    headers = {"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1"}
+    # ユーザーエージェントをスマホ版 Safari に偽装してブロックを防ぐ
+    headers = {
+        "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1"
+    }
+    
+    # 1. 今日の開催場リストを取得（もっとも安定している簡易API/jsonを狙う）
+    # ※今回は確実に動かすため、netkeirinの番組表をより丁寧にパースする
     today = datetime.now().strftime("%Y%m%d")
     master_data = {}
 
     try:
-        # 1. 開催場リストを取得
+        # 開催場を特定するためのトップページ
         base_url = f"https://keirin.netkeiba.com/db/program/?date={today}"
         res = requests.get(base_url, headers=headers, timeout=10)
-        soup = BeautifulSoup(res.content, "html.parser")
         
-        # 開催場を探す
-        stadium_links = soup.select(".RaceList_DataList li a")
+        # 開催場名とIDを正規表現で強引に抜き出す（HTML構造の変化に強い）
+        import re
+        # 例: bankid=01" title="玉野"
+        stadiums = re.findall(r'bankid=(\d+)".*?title="([^"]+)"', res.text)
         
-        if not stadium_links:
-            # 開催が見つからない場合のテスト用
-            master_data["開催なし(テスト)"] = {str(r): [{"id": i, "s": 90.0, "n": f"テスト選手{i}"} for i in range(1, 10)] for r in range(1, 13)}
+        if not stadiums:
+            print("開催場が見つかりません。テストデータを生成します。")
+            master_data["(予備)玉野"] = {str(r): [{"id": i, "s": 80.0, "n": f"準備中{i}"} for i in range(1, 10)] for r in range(1, 13)}
         else:
-            for link in stadium_links:
-                name = link.text.strip().replace(" ", "").replace("\n", "")
-                href = link.get("href")
-                bankid = re.search(r"bankid=(\d+)", href).group(1)
-                
+            for bankid, name in stadiums:
                 print(f"【{name}】を取得中...")
                 stadium_races = {}
                 
-                # とりあえず1R〜12Rまで回す
                 for r in range(1, 13):
+                    # 出走表ページ
                     race_url = f"https://keirin.netkeiba.com/db/shusso/?bankid={bankid}&race_no={r}"
                     r_res = requests.get(race_url, headers=headers, timeout=10)
-                    r_soup = BeautifulSoup(r_res.content, "html.parser")
+                    
+                    # 選手名と得点を抽出
+                    # 選手名は <span class="PlayerName">...</span>
+                    # 得点は <span class="Score">...</span>
+                    names = re.findall(r'<span class="PlayerName">(.*?)</span>', r_res.text)
+                    scores = re.findall(r'<span class="Score">(\d+\.\d+)</span>', r_res.text)
                     
                     players = []
-                    rows = r_soup.select(".PlayerList_Row")
-                    for idx, row in enumerate(rows, 1):
-                        p_name_tag = row.select_one(".PlayerName")
-                        p_score_tag = row.select_one(".Score")
-                        
-                        if p_name_tag:
-                            name_text = p_name_tag.text.strip()
-                            score_val = 0.0
-                            if p_score_tag:
-                                score_match = re.search(r"\d+\.\d+", p_score_tag.text)
-                                if score_match:
-                                    score_val = float(score_match.group())
-                            
-                            players.append({"id": idx, "s": score_val, "n": name_text})
+                    for i in range(len(names)):
+                        p_name = names[i].strip()
+                        p_score = float(scores[i]) if i < len(scores) else 0.0
+                        players.append({"id": i+1, "s": p_score, "n": p_name})
                     
                     if players:
                         stadium_races[str(r)] = players
-                    time.sleep(0.2) # 少しだけ待機
+                    time.sleep(0.5) # サーバーへの優しさ
                 
                 master_data[name] = stadium_races
 
     except Exception as e:
-        print(f"エラーが発生したよ: {e}")
-        # エラー時のバックアップデータ
-        master_data["エラー復旧中"] = {str(r): [{"id": i, "s": 0.0, "n": "再読み込みしてね"} for i in range(1, 10)] for r in range(1, 13)}
+        print(f"エラー: {e}")
+        master_data["エラー"] = {str(r): [{"id": i, "s": 0.0, "n": "再試行してね"} for i in range(1, 10)] for r in range(1, 13)}
 
-    # 保存
     with open('data.json', 'w', encoding='utf-8') as f:
         json.dump(master_data, f, ensure_ascii=False, indent=2)
 
 if __name__ == "__main__":
     get_keirin_data()
+
