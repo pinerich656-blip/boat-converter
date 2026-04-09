@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>本格競輪予測 Pro - Full Race Edition</title>
+    <title>本格競輪予測 Pro - 全場対応版</title>
     <style>
         :root {
             --color-1: #ffffff; --color-2: #333333; --color-3: #e74c3c;
@@ -25,7 +25,6 @@
         .player-row { display: flex; align-items: center; margin-bottom: 6px; gap: 8px; }
         .car-num { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid #ccc; font-size: 0.8rem; }
         
-        /* 各車カラー */
         .car-1 { background: var(--color-1); color: #000; }
         .car-2 { background: var(--color-2); color: #fff; }
         .car-3 { background: var(--color-3); color: #fff; }
@@ -36,8 +35,8 @@
         .car-8 { background: var(--color-8); color: #fff; }
         .car-9 { background: var(--color-9); color: #fff; }
 
-        .btn-fetch { background: #3498db; color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 10px; }
-        .btn-calc { background: #27ae60; color: white; border: none; width: 100%; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 1.1rem; }
+        .btn-fetch { background: #3498db; color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 10px; cursor: pointer; }
+        .btn-calc { background: #27ae60; color: white; border: none; width: 100%; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 1.1rem; cursor: pointer; }
 
         #result { margin-top: 20px; padding: 15px; border-radius: 12px; display: none; background: #fffbe6; border: 2px solid #ffe58f; }
         .rank-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
@@ -48,17 +47,15 @@
 
 <div class="container">
     <h1>本格競輪予測 Pro</h1>
-    <div id="status" class="status-badge">データ未取得：上のボタンで読み込んでね</div>
+    <div id="status" class="status-badge">データ未取得：同期ボタンを押してね</div>
 
     <button class="btn-fetch" onclick="autoFetchData()">🔄 全レースデータを同期</button>
 
     <div class="setup-section">
         <div>
-            <label class="section-title">競輪場</label>
-            <select id="stadium">
-                <option value="1.0">玉野 (400m)</option>
-                <option value="1.1">直線長め</option>
-                <option value="0.9">短周</option>
+            <label class="section-title">開催場を選択</label>
+            <select id="stadium-select" onchange="updateRaceDisplay()">
+                <option value="">-- 同期してね --</option>
             </select>
         </div>
         <div>
@@ -69,7 +66,7 @@
 
     <div class="section-title">ライン構成 (例: 127 34 56)</div>
     <div class="line-input-area">
-        <input type="text" id="line-config" placeholder="半角スペース区切り">
+        <input type="text" id="line-config" placeholder="半角スペース区切りで入力">
     </div>
 
     <div id="players"></div>
@@ -83,9 +80,9 @@
 </div>
 
 <script>
-    let allRacesData = null; // 取得した全12Rデータを保持
+    let allData = null;
 
-    // 1. 画面初期化
+    // 画面初期化（入力欄の作成）
     const pArea = document.getElementById('players');
     for(let i=1; i<=9; i++) {
         pArea.innerHTML += `
@@ -97,41 +94,51 @@
         `;
     }
 
-    // 2. 外部JSON(data.json)をメモリに読み込む
+    // データの同期
     async function autoFetchData() {
         try {
-            const response = await fetch('data.json?t=' + new Date().getTime()); // キャッシュ回避
-            allRacesData = await response.json();
-            document.getElementById('status').innerText = "✅ 全12レースのデータを保持中";
+            const res = await fetch('data.json?t=' + new Date().getTime());
+            allData = await res.json();
+            
+            // セレクトボックスに開催場を自動追加
+            const select = document.getElementById('stadium-select');
+            select.innerHTML = '';
+            Object.keys(allData).forEach(stadiumName => {
+                let opt = document.createElement('option');
+                opt.value = stadiumName;
+                opt.innerHTML = stadiumName;
+                select.appendChild(opt);
+            });
+            
+            document.getElementById('status').innerText = "✅ データの同期が完了しました";
             updateRaceDisplay();
-            alert("同期しました。レース番号を切り替えて使ってね！");
-        } catch (error) {
-            alert("データの同期に失敗したよ。GitHub Pagesが反映されるまで少し待ってね。");
+            alert("全開催場のデータを同期しました！");
+        } catch (e) {
+            alert("同期エラー。GitHubのActionsが終わるまで少し待ってみてね。");
         }
     }
 
-    // 3. レース番号入力欄が変わった時に表示を更新
+    // 表示の更新
     function updateRaceDisplay() {
-        if (!allRacesData) return;
-        
+        if (!allData) return;
+        const stadium = document.getElementById('stadium-select').value;
         const raceNum = document.getElementById('race-num').value;
-        const players = allRacesData[raceNum];
+        const players = allData[stadium]?.[raceNum];
         
         if (players) {
-            players.forEach(d => {
-                document.getElementById(`score${d.id}`).value = d.s;
-                document.getElementById(`name${d.id}`).value = d.n;
+            players.forEach(p => {
+                document.getElementById(`score${p.id}`).value = p.s;
+                document.getElementById(`name${p.id}`).value = p.n;
             });
         }
     }
 
-    // 4. 予測計算
+    // 予想計算（ユタカのロジック）
     function runCalculation() {
-        if (!allRacesData) { alert("先にデータを同期してね"); return; }
+        if (!allData) { alert("先にデータを同期してね"); return; }
         
         const lineText = document.getElementById('line-config').value;
         const lines = lineText.split(' ');
-        const stadiumMod = parseFloat(document.getElementById('stadium').value);
         const leaders = lines.map(l => l[0]); 
 
         let results = [];
@@ -139,8 +146,8 @@
             let score = parseFloat(document.getElementById(`score${i}`).value) || 0;
             if(score === 0) continue;
 
-            let finalScore = score * stadiumMod;
-            if(leaders.includes(i.toString())) finalScore += 2.0;
+            let finalScore = score;
+            if(leaders.includes(i.toString())) finalScore += 2.0; // 先頭への加点
 
             results.push({ car: i, name: document.getElementById(`name${i}`).value, score: finalScore });
         }
@@ -164,4 +171,5 @@
 </script>
 </body>
 </html>
+
 
