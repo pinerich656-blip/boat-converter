@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>本格競輪予測 Pro - Line Edition</title>
+    <title>本格競輪予測 Pro - Full Race Edition</title>
     <style>
         :root {
             --color-1: #ffffff; --color-2: #333333; --color-3: #e74c3c;
@@ -14,17 +14,18 @@
         .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         h1 { text-align: center; color: #1a1a1a; font-size: 1.2rem; border-bottom: 2px solid #27ae60; padding-bottom: 10px; }
         
-        .section-title { font-size: 0.9rem; font-weight: bold; color: #27ae60; margin: 15px 0 5px 0; }
+        .status-badge { background: #eef7f2; color: #27ae60; padding: 5px 10px; border-radius: 20px; font-size: 0.75rem; text-align: center; margin-bottom: 15px; }
+        .section-title { font-size: 0.85rem; font-weight: bold; color: #666; margin-top: 15px; }
         .setup-section { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 8px; }
         
         input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 1rem; }
         
-        .line-input-area { background: #eef7f2; padding: 10px; border-radius: 8px; margin-bottom: 15px; }
-        .line-input-area input { border: 2px solid #27ae60; }
+        .line-input-area { background: #fff; padding: 10px; border: 2px solid #27ae60; border-radius: 8px; margin-bottom: 15px; }
 
         .player-row { display: flex; align-items: center; margin-bottom: 6px; gap: 8px; }
-        .car-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid #ccc; font-size: 0.8rem; }
+        .car-num { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 1px solid #ccc; font-size: 0.8rem; }
         
+        /* 各車カラー */
         .car-1 { background: var(--color-1); color: #000; }
         .car-2 { background: var(--color-2); color: #fff; }
         .car-3 { background: var(--color-3); color: #fff; }
@@ -35,9 +36,8 @@
         .car-8 { background: var(--color-8); color: #fff; }
         .car-9 { background: var(--color-9); color: #fff; }
 
-        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-        .btn-fetch { background: #3498db; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        .btn-calc { background: #27ae60; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-fetch { background: #3498db; color: white; border: none; width: 100%; padding: 12px; border-radius: 8px; font-weight: bold; margin-bottom: 10px; }
+        .btn-calc { background: #27ae60; color: white; border: none; width: 100%; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 1.1rem; }
 
         #result { margin-top: 20px; padding: 15px; border-radius: 12px; display: none; background: #fffbe6; border: 2px solid #ffe58f; }
         .rank-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; }
@@ -47,79 +47,91 @@
 <body>
 
 <div class="container">
-    <h1>本格競輪予測 Pro v2</h1>
-    
-    <div class="btn-group" style="margin-bottom: 15px;">
-        <button class="btn-fetch" onclick="autoFetchData()">📡 データ自動取得</button>
-        <div style="font-size: 0.7rem; color: #666; display: flex; align-items: center;">※最新データを外部JSONから読み込み</div>
+    <h1>本格競輪予測 Pro</h1>
+    <div id="status" class="status-badge">データ未取得：上のボタンで読み込んでね</div>
+
+    <button class="btn-fetch" onclick="autoFetchData()">🔄 全レースデータを同期</button>
+
+    <div class="setup-section">
+        <div>
+            <label class="section-title">競輪場</label>
+            <select id="stadium">
+                <option value="1.0">玉野 (400m)</option>
+                <option value="1.1">直線長め</option>
+                <option value="0.9">短周</option>
+            </select>
+        </div>
+        <div>
+            <label class="section-title">レース番号 (1-12)</label>
+            <input type="number" id="race-num" value="1" min="1" max="12" onchange="updateRaceDisplay()">
+        </div>
     </div>
 
     <div class="section-title">ライン構成 (例: 127 34 56)</div>
     <div class="line-input-area">
-        <input type="text" id="line-config" placeholder="ラインを半角スペース区切りで入力">
+        <input type="text" id="line-config" placeholder="半角スペース区切り">
     </div>
 
-    <div class="setup-section">
-        <select id="stadium">
-            <option value="1.0">基準 (400m)</option>
-            <option value="1.1">直線長 (松山等)</option>
-            <option value="0.9">短周 (小倉等)</option>
-        </select>
-        <input type="number" id="race-num" value="1" min="1">
-    </div>
+    <div id="players"></div>
 
-    <div id="players">
-        </div>
-
-    <button class="btn-calc" style="width:100%; margin-top:10px;" onclick="runCalculation()">予想実行</button>
+    <button class="btn-calc" onclick="runCalculation()">予想実行</button>
 
     <div id="result">
-        <h3 style="margin:0 0 10px 0; font-size: 1rem;">🎯 最終予測結果</h3>
+        <h3 style="margin:0 0 10px 0; font-size: 1rem;">🎯 最終予測スコア</h3>
         <div id="prediction-list"></div>
     </div>
 </div>
 
 <script>
-    // 画面初期化（9車分の入力欄作成）
+    let allRacesData = null; // 取得した全12Rデータを保持
+
+    // 1. 画面初期化
     const pArea = document.getElementById('players');
     for(let i=1; i<=9; i++) {
         pArea.innerHTML += `
             <div class="player-row">
                 <div class="car-num car-${i}">${i}</div>
-                <input type="number" id="score${i}" placeholder="得点" step="0.1">
-                <input type="text" id="name${i}" placeholder="選手名" style="font-size:0.8rem;">
+                <input type="number" id="score${i}" placeholder="得点" step="0.1" style="width:70px;">
+                <input type="text" id="name${i}" placeholder="選手名" readonly style="background:#f9f9f9; color:#666; font-size:0.85rem;">
             </div>
         `;
     }
 
-    // 1. データ自動取得（シミュレーション）
+    // 2. 外部JSON(data.json)をメモリに読み込む
     async function autoFetchData() {
-    try {
-        // 同じ場所にある data.json を読みに行く
-        const response = await fetch('data.json');
-        const data = await response.json();
+        try {
+            const response = await fetch('data.json?t=' + new Date().getTime()); // キャッシュ回避
+            allRacesData = await response.json();
+            document.getElementById('status').innerText = "✅ 全12レースのデータを保持中";
+            updateRaceDisplay();
+            alert("同期しました。レース番号を切り替えて使ってね！");
+        } catch (error) {
+            alert("データの同期に失敗したよ。GitHub Pagesが反映されるまで少し待ってね。");
+        }
+    }
+
+    // 3. レース番号入力欄が変わった時に表示を更新
+    function updateRaceDisplay() {
+        if (!allRacesData) return;
         
-        data.forEach(d => {
-            if(document.getElementById(`score${d.id}`)) {
+        const raceNum = document.getElementById('race-num').value;
+        const players = allRacesData[raceNum];
+        
+        if (players) {
+            players.forEach(d => {
                 document.getElementById(`score${d.id}`).value = d.s;
                 document.getElementById(`name${d.id}`).value = d.n;
-            }
-        });
-        alert("GitHubから最新データを取得しました！");
-    } catch (error) {
-        console.error("エラー:", error);
-        alert("データの読み込みに失敗しました。ファイルがあるか確認してね。");
+            });
+        }
     }
-}
 
-
-    // 2. 予測計算（ライン考慮版）
+    // 4. 予測計算
     function runCalculation() {
-        const lineText = document.getElementById('line-config').value; // 例 "127 34 56"
+        if (!allRacesData) { alert("先にデータを同期してね"); return; }
+        
+        const lineText = document.getElementById('line-config').value;
         const lines = lineText.split(' ');
         const stadiumMod = parseFloat(document.getElementById('stadium').value);
-        
-        // 各ラインの先頭選手（自力選手）を抽出
         const leaders = lines.map(l => l[0]); 
 
         let results = [];
@@ -127,19 +139,13 @@
             let score = parseFloat(document.getElementById(`score${i}`).value) || 0;
             if(score === 0) continue;
 
-            // 基本スコア計算
             let finalScore = score * stadiumMod;
-
-            // ライン先頭ボーナス（自力評価）
-            if(leaders.includes(i.toString())) {
-                finalScore += 2.0; // 先行選手に一律加点
-            }
+            if(leaders.includes(i.toString())) finalScore += 2.0;
 
             results.push({ car: i, name: document.getElementById(`name${i}`).value, score: finalScore });
         }
 
         results.sort((a, b) => b.score - a.score);
-
         const list = document.getElementById('prediction-list');
         list.innerHTML = '';
         const marks = ['◎', '○', '▲', '△', '×'];
@@ -148,7 +154,7 @@
             const mark = marks[idx] || ' ';
             list.innerHTML += `
                 <div class="rank-item">
-                    <span><span class="mark">${mark}</span>${r.car}番車 (${r.name || '無名'})</span>
+                    <span><span class="mark">${mark}</span>${r.car}番車 (${r.name})</span>
                     <span style="font-weight:bold;">${r.score.toFixed(2)}</span>
                 </div>
             `;
