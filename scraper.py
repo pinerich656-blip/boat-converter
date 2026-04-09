@@ -1,46 +1,42 @@
 import requests
-from bs4 import BeautifulSoup
 import json
 import time
 from datetime import datetime
 
-def get_all_races_tamano(place_code="01"):
-    today = datetime.now().strftime("%Y%m%d")
-    print(f"--- {today} 玉野競輪 全レースデータ作成開始 ---")
+def get_all_active_stadiums():
+    # 本来はここで「今日の開催一覧ページ」をスクレイピングする
+    # 今回は例として、今日開催の可能性がある場を複数リストアップ
+    # ※本物にする際はここを自動取得に変更します
+    active_stadiums = {
+        "01": "玉野",
+        "71": "松山",
+        "81": "小倉",
+        "42": "大垣"
+    }
     
-    all_data = {}
-    
-    # 1Rから12Rまでループ
-    for race_num in range(1, 13):
-        race_key = str(race_num)
-        print(f"第{race_key}レースのデータを生成中...")
-        
-        # 本格的なスクレイピング・ロジックの土台
-        # 将来的にはここで各レースの個別URL（netkeirin等）を叩く
-        race_players = []
-        for car_id in range(1, 10):
-            # テスト用にレース毎・車番毎に少しずつ違う得点を作るロジック
-            # レース番号(race_num)と車番(car_id)を計算に入れて「変化」を見やすくしたよ
-            base_score = 85.0 + (race_num * 0.5) 
-            adjustment = (car_id * 1.2)
-            
-            race_players.append({
-                "id": car_id,
-                "s": round(base_score + adjustment, 1),
-                "n": f"玉野{race_key}R {car_id}番車"
-            })
-        
-        all_data[race_key] = race_players
-        
-        # 連続アクセスで負荷をかけないための待機（本物サイトを叩く時用）
-        # time.sleep(0.5) 
+    master_data = {}
 
-    # 12レース分まとまったデータを保存
+    for code, name in active_stadiums.items():
+        print(f"【{name}】データを収集中...")
+        stadium_races = {}
+        
+        for r in range(1, 13):
+            race_players = []
+            for i in range(1, 10):
+                # 場名とレース番号がわかるように名前を生成
+                race_players.append({
+                    "id": i,
+                    "s": round(80.0 + (int(code)*0.1) + r + i, 1),
+                    "n": f"{name}{r}R {i}番車"
+                })
+            stadium_races[str(r)] = race_players
+        
+        master_data[name] = stadium_races
+        time.sleep(0.1) # サーバーに優しく
+
     with open('data.json', 'w', encoding='utf-8') as f:
-        json.dump(all_data, f, ensure_ascii=False, indent=2)
-    
-    print(f"--- 全12レースの data.json 書き出し完了 ---")
+        json.dump(master_data, f, ensure_ascii=False, indent=2)
+    print("全場データのパッキングが完了しました！")
 
 if __name__ == "__main__":
-    # 玉野(01)を指定して実行
-    get_all_races_tamano("01")
+    get_all_active_stadiums()
