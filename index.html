@@ -172,8 +172,9 @@
         renderResult(sorted, structure);
       });
 
-      function renderResult(scored, structure) {
+            function renderResult(scored, structure) {
         document.getElementById('result').classList.remove('hidden');
+        document.getElementById('resultEmpty').classList.add('hidden');
         document.getElementById('structureText').textContent = `構造: ${structure}`;
         document.getElementById('conclusionText').textContent = `${scored[0].num}番を軸に評価。`;
         
@@ -187,12 +188,29 @@
           tbody.appendChild(tr);
         });
         
-        // 推奨買い目（以前のロジックから生成）
+        // --- ここで買い目を作って保存する ---
         const top = scored[0].num;
-        const second = scored[1].num;
-        const third = scored[2].num;
-        document.getElementById('mainLine').innerHTML = `<li class="bet-main">${top}-${second}-${third}</li><li class="bet-main">${top}-${second}-${scored[3]?.num||''}</li>`;
+        const s2 = scored[1]?.num;
+        const s3 = scored[2]?.num;
+        const s4 = scored[3]?.num;
+
+        // 本線・対抗の買い目リスト
+        const mainBets = [`${top}-${s2}-${s3}`, `${top}-${s2}-${s4}`].filter(v => !v.includes('undefined'));
+        const subBets = [`${top}-${s3}-${s2}`, `${top}-${s3}-${s4}`, `${s2}-${top}-${s3}`].filter(v => !v.includes('undefined'));
+
+        // 画面のリストを表示
+        document.getElementById('mainLine').innerHTML = mainBets.map(v => `<li class="bet-main">${v}</li>`).join('');
+        document.getElementById('subLine').innerHTML = subBets.map(v => `<li class="bet-sub">${v}</li>`).join('');
+
+        // ★これが重要！的中チェックがこれを見て判定するよ
+        latestResult = { 
+          scored: scored, 
+          structure: structure, 
+          main: mainBets, 
+          sub: subBets 
+        };
       }
+
 
       function parseCSV(text) {
         const lines = text.trim().split('\n');
@@ -203,17 +221,38 @@
         });
       }
 
-           // --- 的中チェック ---
+                // --- 的中チェック（完全判定版） ---
       document.getElementById('checkResultBtn').addEventListener('click', () => {
-        const actual = document.getElementById('actualResult').value.trim();
-        const hitRes = document.getElementById('hitResult');
+        const actual = (document.getElementById('actualResult').value || '').trim();
+        const hitResult = document.getElementById('hitResult');
+
         if (!actual) {
-          hitRes.className = 'muted';
-          hitRes.textContent = '結果を入力してください。';
+          hitResult.className = 'muted';
+          hitResult.textContent = '結果を入力してください。';
           return;
         }
-        hitRes.innerHTML = `<div class="hit-sub">判定実行: ${actual}</div>`;
+
+        if (!latestResult || !latestResult.main) {
+          hitResult.className = 'muted';
+          hitResult.textContent = '先にAI判定をしてください。';
+          return;
+        }
+
+        const isMainHit = latestResult.main.includes(actual);
+        const isSubHit = latestResult.sub.includes(actual);
+
+        if (isMainHit) {
+          hitResult.className = 'hit-main';
+          hitResult.textContent = `◎ 本線的中: ${actual}`;
+        } else if (isSubHit) {
+          hitResult.className = 'hit-sub';
+          hitResult.textContent = `○ 対抗・押さえ的中: ${actual}`;
+        } else {
+          hitResult.className = 'hit-miss';
+          hitResult.textContent = `× 不的中: ${actual}`;
+        }
       });
+
 
       // --- クリアボタン（修正版） ---
       document.getElementById('clearBtn').addEventListener('click', () => {
