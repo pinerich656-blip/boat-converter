@@ -104,13 +104,12 @@
       }
 
       // --- データ整形：数字の塊から脚質を自動判定 ---
-                         function convertRawToCsv(raw) {
-        // スペースを消して、まずは一本の文字列にする
+                               function convertRawToCsv(raw) {
         const clean = raw.replace(/\s+/g, '');
         const rows = [];
         
-        // 「漢字の名前」を見つけたら、そこから次を一人分として切り出す
-        const playerRegex = /([一-龠]{2,4})(\d{10,}.*?)(?=([一-龠]{2,4}\d{10,})|$)/g;
+        // 名前（漢字）を起点に、次の名前が出るまでを一人分として区切る
+        const playerRegex = /([一-龠]{2,4})(\d{6,}.*?)(?=([一-龠]{2,4}\d{6,})|$)/g;
         
         let m;
         while ((m = playerRegex.exec(clean)) !== null) {
@@ -118,19 +117,21 @@
           const dataStr = m[2];
           const allNums = dataStr.match(/\d+/g)?.join('') || "";
 
-          if (allNums.length < 10) continue;
+          if (allNums.length < 8) continue;
 
-          // 【精密解体】ユタカのデータ並び順：歳(2) 期(2) 得点(4) 
+          // 【得点】は常に「年齢(2)期別(2)」の直後、つまり5文字目から4桁
           const scoreStr = allNums.substring(4, 8);
           const score = (parseFloat(scoreStr) / 100).toFixed(2);
 
-          // 後ろから3文字ずつ取る（勝率・連対率）
-          // 田中選手の「105(勝率) 157(2連) 315(3連)」を狙う
-          const win   = (parseFloat(allNums.substring(9, 12)) / 10).toFixed(1);
-          const ren2  = (parseFloat(allNums.substring(12, 15)) / 10).toFixed(1);
-          const ren3  = (parseFloat(allNums.substring(15, 18)) / 10).toFixed(1);
+          // 【勝率・連対率】は、データの「一番最後」にあるはず。
+          // 後ろから順番に、3連(3桁)、2連(3桁)、勝率(3桁)と逆算して切り出す。
+          const len = allNums.length;
+          // ギア倍数などの余計な数字が後ろにある場合を考慮し、末尾から少し手前を狙う
+          const ren3  = (parseFloat(allNums.substring(len - 5, len - 2)) / 10).toFixed(1);
+          const ren2  = (parseFloat(allNums.substring(len - 8, len - 5)) / 10).toFixed(1);
+          const win   = (parseFloat(allNums.substring(len - 11, len - 8)) / 10).toFixed(1);
 
-          // 脚質：コメントの中に「自力・逃・追・目標・目標」があれば拾う
+          // 脚質判定
           let style = '両';
           if (dataStr.includes('自力') || dataStr.includes('逃')) style = '逃';
           else if (dataStr.includes('目標') || dataStr.includes('追') || dataStr.includes('差')) style = '追';
@@ -145,6 +146,7 @@
         return '車番,得点,B,S,脚質,勝率,2連対率,3連対率\n' + 
                rows.map(r => `${r.car},${r.score},${r.b},${r.s},${r.style},${r.win},${r.quinella},${r.trio}`).join('\n');
       }
+
 
 
 
