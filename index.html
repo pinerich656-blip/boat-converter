@@ -104,29 +104,33 @@
       }
 
       // --- データ整形：数字の塊から脚質を自動判定 ---
-       function convertRawToCsv(raw) {
+             function convertRawToCsv(raw) {
         const clean = raw.replace(/\s+/g, '');
         const rows = [];
-        // 名前（漢字）と、それに続く数字（得点から始まる）をセットで拾う
+        // 選手名（漢字）と、それに続く長い数字の塊をセットで拾う
         const playerRegex = /([一-龠]{2,4})(\d{10,}.*?)(?=[一-龠]{2,4}\d{10,}|$)/g;
         
         let m;
         while ((m = playerRegex.exec(clean)) !== null) {
           const name = m[1];
           const dataStr = m[2];
-          const nums = dataStr.match(/\d+(\.\d+)?/g) || [];
+          // 数字だけを抽出
+          const allNums = dataStr.match(/\d+/g)?.join('') || "";
 
-          if (nums.length < 1) continue;
+          if (allNums.length < 15) continue;
 
-          // ショートカットで掃除済みなら、最初の数字が「得点」
-          const scoreRaw = nums[0]; 
-          const score = (parseFloat(scoreRaw) / 100).toFixed(2);
-          
-          // 勝率などは後ろの方から逆算して取得（データ長の変化に強い）
-          const win   = nums[nums.length - 4] || "0.0";
-          const ren2  = nums[nums.length - 3] || "0.0";
-          const ren3  = nums[nums.length - 2] || "0.0";
+          // ユタカの「田中智也53746895...」の並びを厳密に解体
+          // [0-1]歳:53, [2-3]期:74, [4-7]得点:6895
+          const scoreStr = allNums.substring(4, 8);
+          const score = (parseFloat(scoreStr) / 100).toFixed(2);
 
+          // 勝率などの位置を特定（田中選手の10.5, 15.7, 31.5 の並びから逆算）
+          // 数字が密集しているので、特定の桁数で切り出す
+          const win   = (parseFloat(allNums.substring(9, 12)) / 10).toFixed(1);
+          const ren2  = (parseFloat(allNums.substring(12, 15)) / 10).toFixed(1);
+          const ren3  = (parseFloat(allNums.substring(15, 18)) / 10).toFixed(1);
+
+          // 脚質判定
           let style = '両';
           if (dataStr.includes('自力') || dataStr.includes('逃')) style = '逃';
           else if (dataStr.includes('目標') || dataStr.includes('追') || dataStr.includes('差')) style = '追';
@@ -141,6 +145,7 @@
         return '車番,得点,B,S,脚質,勝率,2連対率,3連対率\n' + 
                rows.map(r => `${r.car},${r.score},${r.b},${r.s},${r.style},${r.win},${r.quinella},${r.trio}`).join('\n');
       }
+
 
 
 
