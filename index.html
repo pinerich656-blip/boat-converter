@@ -104,38 +104,65 @@
       }
 
       // --- データ整形：数字の塊から脚質を自動判定 ---
-                                     function convertRawToCsv(raw) {
+      function convertRawToCsv(raw) {
         const rows = [];
-        // 名前と数字の塊をセットで取得
-        const playerRegex = /([一-龠]{2,4}),([\d.,]+)/g;
+        // 改行や空白、カンマをすべて「スペース1つ」に統一して扱いやすくする
+        const cleanRaw = raw.replace(/[\r\n\t,]+/g, ' ');
+        const parts = cleanRaw.split(/\s+/).filter(p => p.length > 0);
         
-        let m;
-        while ((m = playerRegex.exec(raw)) !== null) {
-          const name = m[1];
-          // カンマで数字をバラバラにする
-          const nums = m[2].split(',').filter(n => n.length > 0);
+        let i = 0;
+        while (i < parts.length) {
+          // 漢字2文字以上の「名前」を探す（これが一人分のスタート地点）
+          if (/[一-龠]{2,}/.test(parts[i])) {
+            const name = parts[i];
+            let score = "0.00";
+            let nums = [];
+            
+            // 次の名前が出てくるまで、その選手の情報を全部集める
+            let j = i + 1;
+            while (j < parts.length && !/[一-龠]{2,}/.test(parts[j])) {
+              const val = parts[j];
+              // 「100.84」や「95.75」のような小数点を「得点」として最優先で拾う
+              if (/^\d{2,3}\.\d{2}$/.test(val) && score === "0.00") {
+                score = val;
+              } 
+              // それ以外の数字（勝率・連対率など）をストック
+              else if (/^\d{1,3}(\.\d{1,2})?$/.test(val)) {
+                nums.push(val);
+              }
+              j++;
+            }
 
-          if (nums.length < 5) continue;
+            // データが十分あれば（得点＋いくつかの数字）
+            if (score !== "0.00" || nums.length > 0) {
+              // 勝率・連対率は、その選手のデータの「一番最後から3つ」を拾う
+              const win   = nums[nums.length - 3] || "0.0";
+              const ren2  = nums[nums.length - 2] || "0.0";
+              const ren3  = nums[nums.length - 1] || "0.0";
 
-          // カンマ区切りなら、順番通りに取るだけ！
-          // nums[0]=年齢, nums[1]=期別, nums[2]=得点
-          const score = parseFloat(nums[2]).toFixed(2);
-          
-          // 勝率などは後ろから3つを狙い撃ち
-          const win   = nums[nums.length - 4] || "0.0";
-          const ren2  = nums[nums.length - 3] || "0.0";
-          const ren3  = nums[nums.length - 2] || "0.0";
+              // 脚質判定（「自力」などの文字が含まれているか）
+              let style = "両";
+              const segment = parts.slice(i, j).join("");
+              if (segment.includes("逃") || segment.includes("自力")) style = "逃";
+              else if (segment.includes("追") || segment.includes("差") || segment.includes("目標") || segment.includes("番手")) style = "追";
 
-          rows.push({
-            car: (rows.length + 1),
-            score: score, b: 0, s: 0, style: "両", win: win, quinella: ren2, trio: ren3
-          });
+              rows.push({
+                car: (rows.length + 1),
+                score: score, b: 0, s: 0, style: style, win: win, quinella: ren2, trio: ren3
+              });
+            }
+            i = j; // 次の選手へ
+          } else {
+            i++;
+          }
         }
 
-        if (rows.length === 0) return null;
+        if (rows.length === 0) return "エラー：データが読み取れませんでした。形式を確認してください。";
+        
         return '車番,得点,B,S,脚質,勝率,2連対率,3連対率\n' + 
                rows.map(r => `${r.car},${r.score},${r.b},${r.s},${r.style},${r.win},${r.quinella},${r.trio}`).join('\n');
       }
+
 
 
 
