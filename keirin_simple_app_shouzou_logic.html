@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>競輪予想シンプル版アプリ（ショウゾウ式）</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#111827; --line:#334155; --text:#f8fafc; --muted:#94a3b8;
+    --accent:#22c55e; --accent2:#38bdf8; --warn:#f59e0b; --danger:#ef4444;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:linear-gradient(180deg,#020617,#0f172a 30%,#111827 100%);
+    color:var(--text);
+  }
+  .wrap{max-width:860px;margin:0 auto;padding:16px 14px 48px}
+  .hero{padding:8px 2px 14px}
+  h1{font-size:24px;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:14px;line-height:1.6}
+  .card{
+    background:rgba(17,24,39,.95);
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:14px;
+    margin:12px 0;
+    box-shadow:0 10px 30px rgba(0,0,0,.25);
+  }
+  h2{font-size:18px;margin:0 0 10px}
+  textarea,input,button{font:inherit}
+  textarea,input{
+    width:100%;
+    border-radius:14px;
+    border:1px solid #475569;
+    background:#0b1220;
+    color:var(--text);
+    padding:12px;
+  }
+  textarea{min-height:220px;resize:vertical;line-height:1.5}
+  button{
+    border:none;
+    border-radius:14px;
+    padding:13px 14px;
+    font-weight:700;
+    color:#04111d;
+    background:linear-gradient(135deg,var(--accent),#86efac);
+  }
+  button.secondary{
+    color:var(--text);
+    background:#1e293b;
+    border:1px solid #475569;
+  }
+  .actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px}
+  .pill{
+    display:inline-block;
+    padding:5px 10px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:700;
+    margin-right:6px;
+    margin-bottom:6px;
+  }
+  .good{background:rgba(34,197,94,.18);color:#86efac;border:1px solid rgba(34,197,94,.35)}
+  .info{background:rgba(56,189,248,.16);color:#7dd3fc;border:1px solid rgba(56,189,248,.32)}
+  .warn{background:rgba(245,158,11,.16);color:#fdba74;border:1px solid rgba(245,158,11,.32)}
+  .danger{background:rgba(239,68,68,.16);color:#fca5a5;border:1px solid rgba(239,68,68,.32)}
+  .list{display:grid;gap:10px}
+  .item{
+    background:#0b1220;
+    border:1px solid #334155;
+    border-radius:14px;
+    padding:12px;
+  }
+  .muted{color:var(--muted)}
+  .small{font-size:12px}
+  .ticket{
+    display:flex;justify-content:space-between;gap:12px;align-items:center;
+    border:1px solid #3f4b61;border-radius:14px;padding:12px;background:#0b1220;
+  }
+  .ticket strong{font-size:22px;letter-spacing:1px}
+  .table{display:grid;gap:8px}
+  .rider{
+    display:grid;grid-template-columns:46px 1.4fr repeat(5,.8fr) 1fr;
+    gap:8px;align-items:center;font-size:13px;
+    background:#0b1220;border:1px solid #334155;border-radius:12px;padding:10px;
+  }
+  .rider.head{font-weight:700;background:#132035}
+  @media (max-width:820px){
+    .rider{grid-template-columns:38px 1.2fr repeat(3,.8fr) 1fr;}
+    .hide-sm{display:none}
+  }
+  .footer{color:var(--muted);font-size:12px;line-height:1.7}
+  code.inline{background:#0b1220;border:1px solid #334155;border-radius:8px;padding:2px 6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>競輪予想シンプル版アプリ（ショウゾウ式）</h1>
+    <div class="sub">出走表を貼ると、<b>主導権 → ライン機能 → 頭 → 2着 → 3着</b>の順で、買い目を2〜4点に絞って表示します。</div>
+  </div>
+
+  <div class="card">
+    <h2>1. 出走表を貼る</h2>
+    <textarea id="rawInput" placeholder="ここにそのまま貼り付け"></textarea>
+
+    <div style="margin-top:10px">
+      <input id="manualLineInput" type="text" placeholder="並び手動修正（任意） 例：1-3-4 / 2-5 / 6-7" />
+      <div class="sub" style="margin-top:8px">空欄なら自動判定。入力がある場合は手動並びを優先します。</div>
+    </div>
+
+    <div class="actions">
+      <button id="analyzeBtn">予想する</button>
+      <button id="sampleBtn" class="secondary">サンプル入力</button>
+      <button id="clearBtn" class="secondary">全てクリア</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2. ルール</h2>
+    <div class="sub">
+      先に<b>誰が前に行くしかないか</b>を見て、その次に<b>そのラインが機能するか</b>を見ます。<br>
+      その後で <code class="inline">頭</code> → <code class="inline">2着</code> → <code class="inline">3着</code> の順に組みます。<br>
+      固いレースは <code class="inline">2点</code>、普通は <code class="inline">3点</code>、荒れそうなら <code class="inline">見送り〜4点</code> を想定します。
+    </div>
+  </div>
+
+  <div id="resultArea"></div>
+
+  <div class="card footer">
+    自信度と買い目がズレにくいように、レース型ごとのテンプレで車券を組む版です。<br>
+    コメント欄の「◯◯君。」があると自動並びの精度が上がります。
+  </div>
+</div>
+
+<script>
+const sample = `車
+選手名
+AI
+競走得点
+S
+B
+脚
+逃
+捲
+差
+マ
+1
+着
+2
+着
+3
+着
+着
+外
+勝率
+２連
+対率
+３連
+対率
+ギヤ
+倍率
+コメント
+1
+1
+土生智徳
+大阪 A3 29歳 127期
+77.18
+0
+19
+逃
+13
+12
+2
+1
+16
+12
+1
+4
+48.4
+84.8
+87.8
+3.92
+自力。
+2
+2
+大本隆也
+神奈川 A3 27歳 127期
+75.73
+4
+20
+逃
+15
+2
+1
+0
+11
+7
+2
+10
+36.6
+60.0
+66.6
+3.92
+自力。
+3
+3
+武田哲二
+京都 A3 55歳 65期
+73.18
+10
+0
+追
+0
+0
+2
+12
+1
+13
+5
+14
+3.0
+42.4
+57.5
+3.93
+土生君。
+4
+4
+太田雅之
+三重 A3 48歳 86期
+72.46
+7
+0
+追
+0
+0
+3
+5
+3
+5
+10
+12
+10.0
+26.6
+60.0
+3.92
+中近で。
+5
+5
+山城光央
+静岡 A3 56歳 64期
+67.71
+0
+0
+追
+0
+0
+0
+0
+0
+0
+6
+15
+0.0
+0.0
+28.5
+3.85
+大本君。
+6
+6
+松本充生
+愛媛 A3 47歳 94期
+67.43
+7
+5
+両
+2
+2
+3
+1
+4
+4
+2
+20
+13.3
+26.6
+33.3
+3.93
+自在。
+7
+7
+梶應弘樹
+愛媛 A3 60歳 57期
+61.82
+2
+0
+追
+0
+0
+0
+0
+0
+0
+0
+39
+0.0
+0.0
+0.0
+3.77
+松本君。`;
+
+document.getElementById('sampleBtn').addEventListener('click',()=>{
+  document.getElementById('rawInput').value = sample;
+});
+document.getElementById('clearBtn').addEventListener('click',()=>{
+  document.getElementById('rawInput').value = '';
+  document.getElementById('manualLineInput').value = '';
+  document.getElementById('resultArea').innerHTML = '';
+});
+document.getElementById('analyzeBtn').addEventListener('click',()=>{
+  const raw = document.getElementById('rawInput').value.trim();
+  const manualLine = document.getElementById('manualLineInput').value.trim();
+  const area = document.getElementById('resultArea');
+  if(!raw){
+    area.innerHTML = `<div class="card"><span class="pill danger">入力なし</span><div class="sub">出走表を貼ってから押してください。</div></div>`;
+    return;
+  }
+  const riders = parseRiders(raw);
+  if(riders.length === 0){
+    area.innerHTML = `<div class="card"><span class="pill danger">解析失敗</span><div class="sub">貼り付け形式を読み取れませんでした。コメント欄まで含めて貼ると精度が上がります。</div></div>`;
+    return;
+  }
+  const enriched = enrich(riders);
+  const lines = manualLine ? buildLinesFromManual(enriched, manualLine) : buildLines(enriched);
+  const analysis = analyzeRace(enriched, lines);
+  area.innerHTML = render(enriched, lines, analysis);
+});
+
+function normalizeText(t){
+  return t.replace(/\r/g,'').replace(/　/g,' ').trim();
+}
+function cleanName(name){
+  return name.replace(/\s+/g,'').trim();
+}
+function toNum(v){
+  const n = parseFloat(String(v||'').replace(/[^\d.\-]/g,''));
+  return Number.isFinite(n) ? n : 0;
+}
+function dedupeByCar(arr){
+  const map = new Map();
+  for(const r of arr){ if(!map.has(r.car)) map.set(r.car,r); }
+  return [...map.values()];
+}
+
+function parseRiders(raw){
+  raw = normalizeText(raw);
+  const lines = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+  const riders = [];
+  for(let i=0;i<lines.length;i++){
+    if(/^[1-7]$/.test(lines[i]) && i+1 < lines.length && cleanName(lines[i+1]).length>=2){
+      const car = Number(lines[i]);
+      let idx = i+1;
+      const name = lines[idx++] || '';
+      const profile = lines[idx++] || '';
+      const score = parseFloat((lines[idx++]||'').replace(/[^\d.\-]/g,'')) || 0;
+      const S = toNum(lines[idx++]);
+      const B = toNum(lines[idx++]);
+      const style = (lines[idx++]||'').trim();
+      const nige = toNum(lines[idx++]);
+      const makuri = toNum(lines[idx++]);
+      const sashi = toNum(lines[idx++]);
+      const mark = toNum(lines[idx++]);
+      const first = toNum(lines[idx++]);
+      const second = toNum(lines[idx++]);
+      const third = toNum(lines[idx++]);
+      const out = toNum(lines[idx++]);
+      const winRate = parseFloat((lines[idx++]||'0').replace(/[^\d.\-]/g,'')) || 0;
+      const twoRate = parseFloat((lines[idx++]||'0').replace(/[^\d.\-]/g,'')) || 0;
+      const threeRate = parseFloat((lines[idx++]||'0').replace(/[^\d.\-]/g,'')) || 0;
+      const gear = lines[idx++] || '';
+      let comment = lines[idx] || '';
+      if(comment && /[。.]$/.test(comment)) i = idx;
+      else { comment = ''; i = idx-1; }
+      riders.push({car,name:cleanName(name),profile,score,S,B,style,nige,makuri,sashi,mark,first,second,third,out,winRate,twoRate,threeRate,gear,comment});
+    }
+  }
+  return dedupeByCar(riders).sort((a,b)=>a.car-b.car);
+}
+
+function enrich(riders){
+  return riders.map(r=>{
+    const profileTxt = r.profile || '';
+    const is127 = /127期/.test(profileTxt);
+    const frontIntent = r.B*2.5 + r.S*0.8 + r.nige*0.9 + r.makuri*0.35 + (/逃/.test(r.style)?3:0) + (/両/.test(r.style)?1.2:0) + (/自力|自在/.test(r.comment||'')?2:0) + (is127?3:0);
+    const totalScore = r.score*1.55 + r.twoRate*0.35 + r.winRate*0.28 + r.threeRate*0.18 + r.B*0.55 + r.S*0.25 + r.sashi*0.45 + r.mark*0.28 + (is127?3:0);
+    const chaseScore = r.score*1.35 + r.sashi*0.75 + r.mark*0.62 + r.twoRate*0.28 + r.threeRate*0.16;
+    const finishPower = r.winRate*0.4 + r.twoRate*0.35 + r.sashi*0.8 + r.mark*0.55 + r.score*0.55;
+    return {...r,is127,frontIntent,totalScore,chaseScore,finishPower};
+  });
+}
+
+function buildLines(riders){
+  const parent = new Map(riders.map(r=>[r.car,r.car]));
+  const find = x => parent.get(x)===x ? x : (parent.set(x, find(parent.get(x))), parent.get(x));
+  const union = (a,b)=>{ a=find(a); b=find(b); if(a!==b) parent.set(b,a); };
+
+  for(const r of riders){
+    const c = r.comment || '';
+    for(const other of riders){
+      const surname = other.name.slice(0,2);
+      if(other.car !== r.car && (c.includes(other.name) || (surname && c.includes(surname+'君')))){
+        union(r.car, other.car);
+      }
+    }
+  }
+
+  const groups = new Map();
+  riders.forEach(r=>{
+    const root = find(r.car);
+    if(!groups.has(root)) groups.set(root, []);
+    groups.get(root).push(r);
+  });
+
+  return [...groups.values()]
+    .map(group => orderGroup(group))
+    .filter(g=>g.length>0)
+    .sort((a,b)=>b.length-a.length || (b[0]?.frontIntent||0)-(a[0]?.frontIntent||0));
+}
+
+function buildLinesFromManual(riders, manual){
+  const byCar = new Map(riders.map(r=>[String(r.car), r]));
+  const used = new Set();
+  const groups = manual.split('/').map(s=>s.trim()).filter(Boolean);
+  const lines = [];
+
+  for(const group of groups){
+    const cars = group.split('-').map(s=>s.trim()).filter(Boolean);
+    const line = [];
+    for(const car of cars){
+      const rider = byCar.get(car);
+      if(rider && !used.has(rider.car)){
+        line.push(rider);
+        used.add(rider.car);
+      }
+    }
+    if(line.length) lines.push(line);
+  }
+  for(const r of riders){
+    if(!used.has(r.car)) lines.push([r]);
+  }
+  return lines;
+}
+
+function orderGroup(group){
+  if(group.length===1) return group;
+  const front = [...group].sort((a,b)=>b.frontIntent-a.frontIntent || b.totalScore-a.totalScore)[0];
+  const ordered = [front];
+  const used = new Set([front.car]);
+
+  while(ordered.length < group.length){
+    let best = null;
+    let bestScore = -Infinity;
+    for(const r of group){
+      if(used.has(r.car)) continue;
+      let score = r.chaseScore;
+      const c = r.comment || '';
+      const last = ordered[ordered.length-1];
+      if(c.includes(last.name) || c.includes(last.name.slice(0,2)+'君')) score += 30;
+      if(/中部勢|北勢|関東勢|中近で|九州勢|福島勢|中四国勢/.test(c)) score += 3;
+      if(score > bestScore){ bestScore = score; best = r; }
+    }
+    used.add(best.car);
+    ordered.push(best);
+  }
+  return ordered;
+}
+
+function analyzeRace(riders, lines){
+  const sortedTotal = [...riders].sort((a,b)=>b.totalScore-a.totalScore);
+  const strongest = sortedTotal[0];
+  const secondStrong = sortedTotal[1];
+  const thirdStrong = sortedTotal[2];
+
+  const lineMeta = lines.map(line=>{
+    const leader = line[0];
+    const pos2 = line[1] || null;
+    const pos3 = line[2] || null;
+    const lineLeadPower = (leader?.frontIntent||0) + line.length*1.5 + (pos2?.chaseScore||0)*0.06;
+    const lineSupport = (pos2?.chaseScore||0) + (pos3?.chaseScore||0)*0.65;
+    const lineStrength = (leader?.totalScore||0) + lineSupport*0.25;
+    return {line, leader, pos2, pos3, lineLeadPower, lineSupport, lineStrength};
+  }).sort((a,b)=>b.lineLeadPower-a.lineLeadPower);
+
+  const main = lineMeta[0];
+  const sub = lineMeta[1] || null;
+  const mainLeader = main.leader;
+  const secondLeader = sub ? sub.leader : null;
+  const leaderPos2 = main.pos2;
+  const leaderPos3 = main.pos3;
+
+  const strongGap = (strongest?.totalScore||0) - (secondStrong?.totalScore||0);
+  const leaderGap = (main?.lineLeadPower||0) - (sub?.lineLeadPower||0);
+
+  let raceType = '混戦';
+  if(strongGap >= 12 && leaderGap >= 4) raceType = '1強';
+  else if(strongGap <= 7 || leaderGap <= 3.5) raceType = '2強';
+
+  const leaderWeak = mainLeader && mainLeader.winRate < 15 && mainLeader.twoRate < 25;
+  const lineWorks = !!leaderPos2;
+  const lineLong = main.line.length >= 3;
+  const banteStrong = leaderPos2 ? leaderPos2.chaseScore >= (mainLeader.totalScore * 0.82) : false;
+  const resistance = !!sub && sub.lineLeadPower >= main.lineLeadPower * 0.82;
+
+  const scenario = decideScenario({
+    raceType, strongest, secondStrong, mainLeader, leaderPos2, lineWorks, banteStrong, resistance, leaderWeak, lineLong, main, sub
+  });
+
+  const tickets = buildTicketsFromScenario({
+    scenario, strongest, secondStrong, thirdStrong, main, sub, riders
+  });
+
+  const conf = getConfidenceFromScenario(scenario);
+
+  const reasoning = [];
+  reasoning.push(`主導権本命は ${mainLeader.car}番 ${mainLeader.name}`);
+  if(secondLeader) reasoning.push(`対抗主導権は ${secondLeader.car}番 ${secondLeader.name}`);
+  reasoning.push(`レース型は「${scenario.label}」`);
+  reasoning.push(scenario.note1);
+  reasoning.push(scenario.note2);
+
+  let buyLevel = scenario.buyLevel;
+  if(tickets.filter(t=>t.label==='本線').length===0 && tickets.length>0){
+    tickets[0].label = '本線';
+  }
+
+  return {
+    raceType: scenario.label,
+    buyLevel,
+    strongest,
+    secondStrong,
+    mainLeader,
+    secondLeader,
+    leaderLine: main.line,
+    tickets,
+    reasoning,
+    conf,
+    scenarioKey: scenario.key
+  };
+}
+
+function decideScenario(ctx){
+  if(ctx.raceType === '1強'){
+    if(ctx.lineWorks && ctx.banteStrong && !ctx.resistance){
+      return {
+        key:'one_strong_bante',
+        label:'1強',
+        buyLevel:'固い',
+        note1:'1強で番手も機能しやすい',
+        note2:'頭は強者か番手差しで組む'
+      };
+    }
+    return {
+      key:'one_strong_free3',
+      label:'1強',
+      buyLevel:'普通',
+      note1:'1強だが相手は少しズレやすい',
+      note2:'2着はライン、3着は自由寄り'
+    };
+  }
+
+  if(ctx.raceType === '2強'){
+    if(ctx.resistance){
+      return {
+        key:'two_strong_battle',
+        label:'2強',
+        buyLevel:'普通',
+        note1:'主導権が2つあり叩き合い寄り',
+        note2:'負けた強者も3着に残しやすい'
+      };
+    }
+    if(ctx.lineWorks){
+      return {
+        key:'two_strong_line',
+        label:'2強',
+        buyLevel:'普通',
+        note1:'主導権は見えるが相手線も強い',
+        note2:'本線はライン、相手に強者を残す'
+      };
+    }
+  }
+
+  if(ctx.lineWorks && !ctx.leaderWeak && !ctx.resistance){
+    return {
+      key:'simple_line',
+      label:'普通',
+      buyLevel:'普通',
+      note1:'先行1本に寄りやすい',
+      note2:'本線はライン決着で組む'
+    };
+  }
+
+  return {
+    key:'mixed',
+    label:'混戦',
+    buyLevel:'荒れ',
+    note1:'主導権と着順がズレやすい',
+    note2:'見送り寄りか4点まで'
+  };
+}
+
+function buildTicketsFromScenario(ctx){
+  const {scenario, strongest, secondStrong, thirdStrong, main, sub, riders} = ctx;
+  const mainLeader = main.leader;
+  const leaderPos2 = main.pos2;
+  const leaderPos3 = main.pos3;
+  const rivalLeader = sub?.leader || null;
+  const rivalPos2 = sub?.pos2 || null;
+  const freeStrong = riders
+    .filter(r=>!main.line.some(x=>x.car===r.car))
+    .sort((a,b)=>b.totalScore-a.totalScore);
+
+  const tickets = [];
+  function add(a,b,c,label){
+    if(!a || !b || !c) return;
+    if(new Set([a.car,b.car,c.car]).size < 3) return;
+    const code = `${a.car}-${b.car}-${c.car}`;
+    if(!tickets.some(t=>t.code===code)) tickets.push({code,label});
+  }
+
+  if(scenario.key === 'one_strong_bante'){
+    const head = strongest;
+    add(head, leaderPos2 || mainLeader, freeStrong[0] || leaderPos3 || secondStrong, '本線');
+    add(head, leaderPos2 || mainLeader, leaderPos3 || freeStrong[0] || secondStrong, '抑え');
+  }
+  else if(scenario.key === 'one_strong_free3'){
+    const head = strongest;
+    add(head, leaderPos2 || mainLeader, freeStrong[0] || leaderPos3 || secondStrong, '本線');
+    add(head, mainLeader, freeStrong[0] || leaderPos3 || secondStrong, '本線');
+    add(head, leaderPos2 || freeStrong[0] || mainLeader, leaderPos3 || freeStrong[1] || secondStrong, '抑え');
+  }
+  else if(scenario.key === 'two_strong_battle'){
+    add(strongest, secondStrong, mainLeader, '本線');
+    add(strongest, leaderPos2 || secondStrong, rivalLeader || thirdStrong, '本線');
+    add(secondStrong, strongest, leaderPos2 || rivalPos2 || thirdStrong, '抑え');
+  }
+  else if(scenario.key === 'two_strong_line'){
+    add(leaderPos2 || mainLeader, mainLeader, rivalLeader || secondStrong, '本線');
+    add(mainLeader, leaderPos2 || rivalLeader || secondStrong, rivalLeader || leaderPos3 || secondStrong, '本線');
+    add(rivalLeader || secondStrong, mainLeader, leaderPos2 || leaderPos3 || thirdStrong, '抑え');
+  }
+  else if(scenario.key === 'simple_line'){
+    add(leaderPos2 || mainLeader, mainLeader, leaderPos3 || freeStrong[0] || secondStrong, '本線');
+    add(mainLeader, leaderPos2 || freeStrong[0] || secondStrong, leaderPos3 || freeStrong[1] || thirdStrong, '本線');
+    add((leaderPos2 || mainLeader), leaderPos3 || freeStrong[0] || secondStrong, mainLeader, '抑え');
+  }
+  else {
+    add(strongest, secondStrong, thirdStrong || mainLeader, '本線');
+    add(mainLeader, secondStrong || leaderPos2 || strongest, freeStrong[0] || leaderPos3 || thirdStrong, '抑え');
+    add(secondStrong, strongest, freeStrong[0] || leaderPos2 || thirdStrong, '抑え');
+    add(mainLeader, freeStrong[0] || secondStrong, freeStrong[1] || leaderPos2 || thirdStrong, '穴');
+  }
+
+  if(tickets.length === 0){
+    add(strongest, secondStrong, thirdStrong, '本線');
+  }
+
+  return tickets.slice(0,4);
+}
+
+function getConfidenceFromScenario(scenario){
+  if(scenario.key === 'one_strong_bante') return {level:'★★★', text:'高'};
+  if(['one_strong_free3','two_strong_battle','two_strong_line','simple_line'].includes(scenario.key)) return {level:'★★☆', text:'中'};
+  return {level:'★☆☆', text:'低'};
+}
+
+function render(riders, lines, a){
+  const racePillClass = a.buyLevel==='固い' ? 'good' : a.buyLevel==='普通' ? 'info' : 'warn';
+  return `
+    <div class="card">
+      <h2>3. 予想結果</h2>
+      <span class="pill ${racePillClass}">${a.buyLevel}</span>
+      <span class="pill info">${a.raceType}</span>
+      <span class="pill good">主導権 ${a.mainLeader.car}</span>
+      ${a.secondLeader ? `<span class="pill warn">対抗主導権 ${a.secondLeader.car}</span>` : ''}
+      <div class="list" style="margin-top:10px">
+        ${a.reasoning.map(t=>`<div class="item">${t}</div>`).join('')}
+      </div>
+      <div class="sub" style="margin-top:10px">自信度：${a.conf.level}（${a.conf.text}）</div>
+    </div>
+
+    <div class="card">
+      <h2>4. 実際に買う形</h2>
+      <div class="list">
+        ${a.tickets.map(t=>`<div class="ticket"><div><div class="small muted">${t.label}</div><strong>${t.code}</strong></div><div class="muted">${ticketHint(t.label)}</div></div>`).join('')}
+      </div>
+      <div class="sub" style="margin-top:10px">本線が必ず1つは出るようにしています。固い2点、普通3点、荒れ4点まで。</div>
+    </div>
+
+    <div class="card">
+      <h2>5. 並び</h2>
+      <div class="list">
+        ${lines.map((line,idx)=>`<div class="item"><b>ライン${idx+1}</b>： ${line.map(r=>`${r.car}-${r.name}`).join(' - ')}</div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>6. 読み取った選手データ</h2>
+      <div class="table">
+        <div class="rider head"><div>車</div><div>選手</div><div>得点</div><div>S</div><div>B</div><div>脚</div><div class="hide-sm">前値</div><div>総合</div></div>
+        ${[...riders].sort((x,y)=>y.totalScore-x.totalScore).map(r=>`
+          <div class="rider">
+            <div>${r.car}</div>
+            <div>${r.name}</div>
+            <div>${r.score.toFixed(2)}</div>
+            <div>${r.S}</div>
+            <div>${r.B}</div>
+            <div>${r.style}</div>
+            <div class="hide-sm">${r.frontIntent.toFixed(1)}</div>
+            <div>${r.totalScore.toFixed(1)}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function ticketHint(label){
+  if(label==='本線') return '厚め';
+  if(label==='抑え') return '薄め';
+  return '遊び';
+}
+</script>
+</body>
+</html>
